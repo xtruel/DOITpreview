@@ -1,6 +1,7 @@
 import { Bell, Search, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ModeToggle } from "@/components/mode-toggle";
 
 interface HeaderProps {
   title: string;
@@ -22,10 +23,13 @@ export function Header({ title, subtitle }: HeaderProps) {
         <div className="relative hidden md:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Cerca..."
+            placeholder="Search..."
             className="w-64 pl-9 bg-secondary border-0 focus-visible:ring-1"
           />
         </div>
+
+        {/* Theme Toggle */}
+        <ModeToggle />
 
         {/* Notifications */}
         <Button variant="ghost" size="icon" className="relative">

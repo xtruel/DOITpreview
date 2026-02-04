@@ -48,33 +48,33 @@ export default function Dashboard() {
 
   const stats = [
     {
-      title: "Lavori Attivi",
+      title: "Active Jobs",
       value: activeJobs.length,
-      change: `${pendingJobs.length} in attesa`,
+      change: `${pendingJobs.length} pending`,
       changeType: "positive" as const,
       icon: Briefcase,
       iconColor: "primary" as const,
     },
     {
-      title: "Completati Oggi",
+      title: "Completed Today",
       value: completedToday.length,
-      change: "obiettivo: 5",
+      change: "target: 5",
       changeType: "positive" as const,
       icon: CheckCircle,
       iconColor: "success" as const,
     },
     {
-      title: "Clienti Totali",
+      title: "Total Clients",
       value: clients.length,
-      change: "anagrafica",
+      change: "registry",
       changeType: "positive" as const,
       icon: User,
       iconColor: "info" as const,
     },
     {
-      title: "Preventivi Approvati",
-      value: `€${approvedQuotesValue.toLocaleString('it-IT')}`,
-      change: `${quotes.filter(q => q.status === 'approved').length} preventivi`,
+      title: "Approved Quotes",
+      value: `€${approvedQuotesValue.toLocaleString('en-US')}`,
+      change: `${quotes.filter(q => q.status === 'approved').length} quotes`,
       changeType: "positive" as const,
       icon: TrendingUp,
       iconColor: "success" as const,
@@ -83,7 +83,7 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <AppLayout title="Dashboard" subtitle="Benvenuto! Ecco la situazione di oggi.">
+      <AppLayout title="Dashboard" subtitle="Welcome! Here's the situation today.">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -92,7 +92,7 @@ export default function Dashboard() {
   }
 
   return (
-    <AppLayout title="Dashboard" subtitle="Benvenuto! Ecco la situazione di oggi.">
+    <AppLayout title="Dashboard" subtitle="Welcome! Here's the situation today.">
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {stats.map((stat) => (
@@ -105,18 +105,18 @@ export default function Dashboard() {
         {/* Left Column - Active Jobs */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Lavori in Corso</h2>
+            <h2 className="text-lg font-semibold">Ongoing Jobs</h2>
             <Button size="sm" className="gap-2" onClick={() => navigate('/lavori')}>
               <Plus className="w-4 h-4" />
-              Nuovo Lavoro
+              New Job
             </Button>
           </div>
           
           {activeJobs.length === 0 ? (
             <Card className="p-8 text-center">
-              <p className="text-muted-foreground">Nessun lavoro attivo al momento</p>
+              <p className="text-muted-foreground">No active jobs at the moment</p>
               <Button className="mt-4" onClick={() => navigate('/lavori')}>
-                Crea il primo lavoro
+                Create first job
               </Button>
             </Card>
           ) : (
@@ -139,7 +139,7 @@ export default function Dashboard() {
                         </h4>
                       </div>
                       <Badge className={priorityColors[job.priority]}>
-                        {job.priority === "high" ? "Alta" : job.priority === "urgent" ? "Urgente" : "Media"}
+                        {job.priority === "high" ? "High" : job.priority === "urgent" ? "Urgent" : job.priority === "medium" ? "Medium" : "Low"}
                       </Badge>
                     </div>
 
@@ -160,14 +160,14 @@ export default function Dashboard() {
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Clock className="w-4 h-4 shrink-0" />
                           <span>
-                            {new Date(job.scheduled_date).toLocaleDateString("it-IT")}
+                            {new Date(job.scheduled_date).toLocaleDateString("en-US")}
                           </span>
                         </div>
                       )}
                     </div>
 
                     <Badge className={statusColors[job.status]}>
-                      {job.status === "in_progress" ? "In Corso" : "Schedulato"}
+                      {job.status === "in_progress" ? "In Progress" : "Scheduled"}
                     </Badge>
                   </CardContent>
                 </Card>
@@ -181,11 +181,11 @@ export default function Dashboard() {
           {/* Recent Clients */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Ultimi Clienti</CardTitle>
+              <CardTitle className="text-base">Recent Clients</CardTitle>
             </CardHeader>
             <CardContent>
               {clients.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nessun cliente</p>
+                <p className="text-sm text-muted-foreground">No clients</p>
               ) : (
                 <div className="space-y-3">
                   {clients.slice(0, 5).map((client) => (
@@ -211,11 +211,11 @@ export default function Dashboard() {
           {/* Pending Quotes */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Preventivi in Attesa</CardTitle>
+              <CardTitle className="text-base">Pending Quotes</CardTitle>
             </CardHeader>
             <CardContent>
               {quotes.filter(q => q.status === 'sent').length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nessun preventivo in attesa</p>
+                <p className="text-sm text-muted-foreground">No pending quotes</p>
               ) : (
                 <div className="space-y-3">
                   {quotes.filter(q => q.status === 'sent').slice(0, 3).map((quote) => (
@@ -225,7 +225,7 @@ export default function Dashboard() {
                         <p className="text-xs text-muted-foreground">{quote.clients?.name}</p>
                       </div>
                       <span className="text-sm font-semibold text-primary">
-                        €{Number(quote.amount).toLocaleString('it-IT')}
+                        €{Number(quote.amount).toLocaleString('en-US')}
                       </span>
                     </div>
                   ))}

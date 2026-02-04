@@ -28,11 +28,11 @@ import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-  { icon: Users, label: "Clienti", href: "/clienti" },
-  { icon: FileText, label: "Preventivi", href: "/preventivi" },
-  { icon: Calendar, label: "Calendario", href: "/calendario" },
-  { icon: Briefcase, label: "Lavori", href: "/lavori" },
-  { icon: BarChart3, label: "Report", href: "/report" },
+  { icon: Users, label: "Clients", href: "/clienti" },
+  { icon: FileText, label: "Quotes", href: "/preventivi" },
+  { icon: Calendar, label: "Calendar", href: "/calendario" },
+  { icon: Briefcase, label: "Jobs", href: "/lavori" },
+  { icon: BarChart3, label: "Reports", href: "/report" },
 ];
 
 export function Sidebar() {
@@ -60,11 +60,11 @@ export function Sidebar() {
   const getRoleLabel = () => {
     switch (role) {
       case "admin":
-        return "Amministratore";
+        return "Administrator";
       case "technician":
-        return "Tecnico";
+        return "Technician";
       case "client":
-        return "Cliente";
+        return "Client";
       default:
         return "";
     }
@@ -145,16 +145,16 @@ export function Sidebar() {
             <DropdownMenuSeparator />
             <DropdownMenuItem>
               <User className="mr-2 h-4 w-4" />
-              Profilo
+              Profile
             </DropdownMenuItem>
             <DropdownMenuItem>
               <Settings className="mr-2 h-4 w-4" />
-              Impostazioni
+              Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={signOut} className="text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
-              Esci
+              Logout
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

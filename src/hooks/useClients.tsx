@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from './useAuth';
 
-const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
+const DEMO = true; // Forced for preview deployment
 
 export interface Client {
   id: string;
@@ -38,8 +38,10 @@ export function useClients() {
     queryFn: async () => {
       if (DEMO) {
         return [
-          { id: 'c1', name: 'Mario Rossi', company: 'Rossi Service', email: 'mario@rossi.it', phone: '3331234567', address: 'Via Roma 1, Milano', notes: 'Cliente storico', tags: ['VIP'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-          { id: 'c2', name: 'Laura Bianchi', company: null, email: 'laura@bianchi.it', phone: '3339876543', address: 'Corso Italia 22, Torino', notes: null, tags: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c1', name: 'Mario Rossi', company: 'Rossi Service', email: 'mario@rossi.it', phone: '3331234567', address: '123 Rome St, Milan', notes: 'Historical client', tags: ['VIP'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c2', name: 'Laura Bianchi', company: null, email: 'laura@bianchi.it', phone: '3339876543', address: '22 Italy Ave, Turin', notes: null, tags: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c3', name: 'Giuseppe Verdi', company: 'Verdi Music Hall', email: 'g.verdi@email.it', phone: '3335557777', address: '45 Park Lane, Rome', notes: 'Requires early appointments', tags: ['Business'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c4', name: 'Sofia Neri', company: 'Neri Design', email: 'sofia@neri.it', phone: '3334448888', address: '88 Fashion Blvd, Milan', notes: null, tags: ['New'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
         ] as Client[];
       }
       const { data, error } = await supabase
