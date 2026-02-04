@@ -175,6 +175,8 @@ export default function Auth() {
 
       <p className="mt-4 text-xs text-muted-foreground text-center">
         Registrandoti accetti i nostri termini di servizio
+        <br />
+        <span className="text-primary font-bold">v2.1 - Demo Credentials: admin@doit.app / ADMIN123</span>
       </p>
     </div>
   );
