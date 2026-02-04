@@ -8,6 +8,8 @@ import Clienti from "./pages/Clienti";
 import Preventivi from "./pages/Preventivi";
 import Calendario from "./pages/Calendario";
 import Lavori from "./pages/Lavori";
+import JobDetail from "./pages/JobDetail";
+import PublicJobStatus from "./pages/PublicJobStatus";
 import Report from "./pages/Report";
 import NotFound from "./pages/NotFound";
 
@@ -25,6 +27,8 @@ const App = () => (
           <Route path="/preventivi" element={<Preventivi />} />
           <Route path="/calendario" element={<Calendario />} />
           <Route path="/lavori" element={<Lavori />} />
+          <Route path="/lavori/:id" element={<JobDetail />} />
+          <Route path="/job/:id/status" element={<PublicJobStatus />} />
           <Route path="/report" element={<Report />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
