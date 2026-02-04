@@ -1,13 +1,13 @@
-import { Home, Briefcase, Calendar, User, Camera } from "lucide-react";
+import { Home, Briefcase, Calendar, FileText, BarChart3 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { icon: Home, label: "Oggi", path: "/" },
   { icon: Briefcase, label: "Lavori", path: "/lavori" },
-  { icon: Camera, label: "Foto", path: "/camera", primary: true },
+  { icon: FileText, label: "Preventivi", path: "/preventivi" },
   { icon: Calendar, label: "Calendario", path: "/calendario" },
-  { icon: User, label: "Profilo", path: "/profilo" },
+  { icon: BarChart3, label: "Report", path: "/report" },
 ];
 
 export function BottomNavigation() {
@@ -20,35 +20,18 @@ export function BottomNavigation() {
           const isActive = location.pathname === item.path;
           const Icon = item.icon;
 
-          if (item.primary) {
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className="flex flex-col items-center justify-center -mt-6"
-              >
-                <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg">
-                  <Icon className="w-6 h-6 text-primary-foreground" />
-                </div>
-                <span className="text-xs mt-1 text-muted-foreground">
-                  {item.label}
-                </span>
-              </Link>
-            );
-          }
-
           return (
             <Link
               key={item.path}
               to={item.path}
               className={cn(
-                "flex flex-col items-center justify-center py-2 px-3 rounded-lg transition-colors",
+                "flex flex-col items-center justify-center py-2 px-3 rounded-lg transition-colors relative",
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Icon className={cn("w-6 h-6", isActive && "stroke-[2.5]")} />
+              <Icon className={cn("w-5 h-5", isActive && "stroke-[2.5]")} />
               <span
                 className={cn(
                   "text-xs mt-1",

@@ -1,92 +1,98 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { StatCard } from "@/components/dashboard/StatCard";
-import { JobCard, JobStatus, Priority } from "@/components/dashboard/JobCard";
-import { QuickActions } from "@/components/dashboard/QuickActions";
-import { TodaySchedule } from "@/components/dashboard/TodaySchedule";
-import { RecentClients } from "@/components/dashboard/RecentClients";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import {
-  Briefcase,
-  CheckCircle,
-  Clock,
-  TrendingUp,
-} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Loader2, MapPin, Clock, User } from "lucide-react";
+import { Briefcase, CheckCircle, AlertCircle, TrendingUp } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useJobs } from "@/hooks/useJobs";
+import { useClients } from "@/hooks/useClients";
+import { useQuotes } from "@/hooks/useQuotes";
 
-const stats = [
-  {
-    title: "Lavori Attivi",
-    value: 12,
-    change: "+3 da ieri",
-    changeType: "positive" as const,
-    icon: Briefcase,
-    iconColor: "primary" as const,
-  },
-  {
-    title: "Completati Oggi",
-    value: 5,
-    change: "83% obiettivo",
-    changeType: "positive" as const,
-    icon: CheckCircle,
-    iconColor: "success" as const,
-  },
-  {
-    title: "In Attesa",
-    value: 8,
-    change: "2 urgenti",
-    changeType: "negative" as const,
-    icon: Clock,
-    iconColor: "warning" as const,
-  },
-  {
-    title: "Fatturato Mese",
-    value: "€24.580",
-    change: "+12% vs mese prec.",
-    changeType: "positive" as const,
-    icon: TrendingUp,
-    iconColor: "info" as const,
-  },
-];
+const statusColors: Record<string, string> = {
+  scheduled: "bg-info/15 text-info",
+  in_progress: "bg-primary/15 text-primary",
+  paused: "bg-warning/15 text-warning",
+  completed: "bg-success/15 text-success",
+  to_bill: "bg-muted text-muted-foreground",
+  billed: "bg-secondary text-secondary-foreground",
+};
 
-const activeJobs = [
-  {
-    id: "JB-2024-089",
-    title: "Installazione caldaia",
-    client: "Mario Rossi",
-    address: "Via Roma 123, Milano",
-    status: "inProgress" as JobStatus,
-    priority: "high" as Priority,
-    time: "09:00 - 12:00",
-    technician: "Marco Bianchi",
-  },
-  {
-    id: "JB-2024-090",
-    title: "Manutenzione condizionatore",
-    client: "Laura Verdi",
-    address: "Via Napoli 45, Milano",
-    status: "scheduled" as JobStatus,
-    priority: "medium" as Priority,
-    time: "14:00 - 16:00",
-    technician: "Luigi Esposito",
-  },
-  {
-    id: "JB-2024-091",
-    title: "Riparazione impianto elettrico",
-    client: "Giuseppe Neri",
-    address: "Via Torino 78, Milano",
-    status: "paused" as JobStatus,
-    priority: "high" as Priority,
-    time: "10:30 - 13:00",
-    technician: "Marco Bianchi",
-  },
-];
+const priorityColors: Record<string, string> = {
+  low: "bg-muted text-muted-foreground",
+  medium: "bg-info/15 text-info",
+  high: "bg-warning/15 text-warning",
+  urgent: "bg-destructive/15 text-destructive",
+};
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const { jobs, isLoading: jobsLoading } = useJobs();
+  const { clients, isLoading: clientsLoading } = useClients();
+  const { quotes, isLoading: quotesLoading } = useQuotes();
+
+  const isLoading = jobsLoading || clientsLoading || quotesLoading;
+
+  // Calculate stats
+  const activeJobs = jobs.filter(j => j.status === 'in_progress' || j.status === 'scheduled');
+  const completedToday = jobs.filter(j => {
+    if (!j.completed_at) return false;
+    const today = new Date().toDateString();
+    return new Date(j.completed_at).toDateString() === today;
+  });
+  const pendingJobs = jobs.filter(j => j.status === 'scheduled');
+  const approvedQuotesValue = quotes
+    .filter(q => q.status === 'approved')
+    .reduce((sum, q) => sum + Number(q.amount), 0);
+
+  const stats = [
+    {
+      title: "Lavori Attivi",
+      value: activeJobs.length,
+      change: `${pendingJobs.length} in attesa`,
+      changeType: "positive" as const,
+      icon: Briefcase,
+      iconColor: "primary" as const,
+    },
+    {
+      title: "Completati Oggi",
+      value: completedToday.length,
+      change: "obiettivo: 5",
+      changeType: "positive" as const,
+      icon: CheckCircle,
+      iconColor: "success" as const,
+    },
+    {
+      title: "Clienti Totali",
+      value: clients.length,
+      change: "anagrafica",
+      changeType: "positive" as const,
+      icon: User,
+      iconColor: "info" as const,
+    },
+    {
+      title: "Preventivi Approvati",
+      value: `€${approvedQuotesValue.toLocaleString('it-IT')}`,
+      change: `${quotes.filter(q => q.status === 'approved').length} preventivi`,
+      changeType: "positive" as const,
+      icon: TrendingUp,
+      iconColor: "success" as const,
+    },
+  ];
+
+  if (isLoading) {
+    return (
+      <AppLayout title="Dashboard" subtitle="Benvenuto! Ecco la situazione di oggi.">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
-    <AppLayout
-      title="Dashboard"
-      subtitle="Benvenuto! Ecco la situazione di oggi."
-    >
+    <AppLayout title="Dashboard" subtitle="Benvenuto! Ecco la situazione di oggi.">
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {stats.map((stat) => (
@@ -100,28 +106,138 @@ export default function Dashboard() {
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Lavori in Corso</h2>
-            <Button size="sm" className="gap-2">
+            <Button size="sm" className="gap-2" onClick={() => navigate('/lavori')}>
               <Plus className="w-4 h-4" />
               Nuovo Lavoro
             </Button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {activeJobs.map((job) => (
-              <JobCard key={job.id} {...job} />
-            ))}
-          </div>
+          
+          {activeJobs.length === 0 ? (
+            <Card className="p-8 text-center">
+              <p className="text-muted-foreground">Nessun lavoro attivo al momento</p>
+              <Button className="mt-4" onClick={() => navigate('/lavori')}>
+                Crea il primo lavoro
+              </Button>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {activeJobs.slice(0, 4).map((job) => (
+                <Card
+                  key={job.id}
+                  hover
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/lavori/${job.id}`)}
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground font-medium mb-1">
+                          #{job.job_number}
+                        </p>
+                        <h4 className="font-semibold text-foreground">
+                          {job.title}
+                        </h4>
+                      </div>
+                      <Badge className={priorityColors[job.priority]}>
+                        {job.priority === "high" ? "Alta" : job.priority === "urgent" ? "Urgente" : "Media"}
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-2 mb-3">
+                      {job.clients && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <User className="w-4 h-4 shrink-0" />
+                          <span>{job.clients.name}</span>
+                        </div>
+                      )}
+                      {job.address && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <MapPin className="w-4 h-4 shrink-0" />
+                          <span className="truncate">{job.address}</span>
+                        </div>
+                      )}
+                      {job.scheduled_date && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Clock className="w-4 h-4 shrink-0" />
+                          <span>
+                            {new Date(job.scheduled_date).toLocaleDateString("it-IT")}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <Badge className={statusColors[job.status]}>
+                      {job.status === "in_progress" ? "In Corso" : "Schedulato"}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Right Column - Sidebar Widgets */}
+        {/* Right Column - Quick Info */}
         <div className="space-y-4">
-          <QuickActions />
-          <TodaySchedule />
-          <RecentClients />
+          {/* Recent Clients */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Ultimi Clienti</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {clients.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nessun cliente</p>
+              ) : (
+                <div className="space-y-3">
+                  {clients.slice(0, 5).map((client) => (
+                    <div key={client.id} className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span className="text-xs font-semibold text-primary">
+                          {client.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{client.name}</p>
+                        {client.company && (
+                          <p className="text-xs text-muted-foreground truncate">{client.company}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Pending Quotes */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Preventivi in Attesa</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {quotes.filter(q => q.status === 'sent').length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nessun preventivo in attesa</p>
+              ) : (
+                <div className="space-y-3">
+                  {quotes.filter(q => q.status === 'sent').slice(0, 3).map((quote) => (
+                    <div key={quote.id} className="flex items-center justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{quote.title}</p>
+                        <p className="text-xs text-muted-foreground">{quote.clients?.name}</p>
+                      </div>
+                      <span className="text-sm font-semibold text-primary">
+                        €{Number(quote.amount).toLocaleString('it-IT')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
 
       {/* FAB */}
-      <Button variant="fab" size="fab">
+      <Button variant="fab" size="fab" onClick={() => navigate('/lavori')}>
         <Plus className="w-6 h-6" />
       </Button>
     </AppLayout>

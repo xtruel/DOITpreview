@@ -2,6 +2,14 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   LayoutDashboard,
   Users,
@@ -13,7 +21,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Zap,
+  LogOut,
+  User,
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
@@ -27,6 +38,37 @@ const navItems = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { profile, role, signOut } = useAuth();
+
+  const getInitials = () => {
+    if (profile?.first_name && profile?.last_name) {
+      return `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase();
+    }
+    if (profile?.email) {
+      return profile.email[0].toUpperCase();
+    }
+    return "U";
+  };
+
+  const getDisplayName = () => {
+    if (profile?.first_name && profile?.last_name) {
+      return `${profile.first_name} ${profile.last_name}`;
+    }
+    return profile?.email || "Utente";
+  };
+
+  const getRoleLabel = () => {
+    switch (role) {
+      case "admin":
+        return "Amministratore";
+      case "technician":
+        return "Tecnico";
+      case "client":
+        return "Cliente";
+      default:
+        return "";
+    }
+  };
 
   return (
     <aside
@@ -70,20 +112,52 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Settings & Collapse */}
-      <div className="p-3 border-t border-sidebar-border space-y-1">
-        <Link to="/impostazioni">
-          <Button
-            variant="navInactive"
-            className={cn(
-              "w-full justify-start gap-3",
-              collapsed && "justify-center px-0"
-            )}
-          >
-            <Settings className="w-5 h-5 shrink-0" />
-            {!collapsed && <span>Impostazioni</span>}
-          </Button>
-        </Link>
+      {/* User & Settings */}
+      <div className="p-3 border-t border-sidebar-border space-y-2">
+        {/* User Profile */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className={cn(
+                "w-full justify-start gap-3 h-auto py-2",
+                collapsed && "justify-center px-0"
+              )}
+            >
+              <Avatar className="w-8 h-8">
+                <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
+              {!collapsed && (
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-medium truncate">{getDisplayName()}</p>
+                  <p className="text-xs text-muted-foreground">{getRoleLabel()}</p>
+                </div>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <div className="px-2 py-1.5">
+              <p className="text-sm font-medium">{getDisplayName()}</p>
+              <p className="text-xs text-muted-foreground">{profile?.email}</p>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>
+              <User className="mr-2 h-4 w-4" />
+              Profilo
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Settings className="mr-2 h-4 w-4" />
+              Impostazioni
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={signOut} className="text-destructive">
+              <LogOut className="mr-2 h-4 w-4" />
+              Esci
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         
         <Button
           variant="ghost"
