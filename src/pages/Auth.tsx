@@ -13,8 +13,8 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Login form
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
+  const [loginEmail, setLoginEmail] = useState('admin@doit.app');
+  const [loginPassword, setLoginPassword] = useState('ADMIN123');
 
   // Signup form
   const [signupEmail, setSignupEmail] = useState('');

