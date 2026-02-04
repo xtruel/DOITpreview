@@ -491,6 +491,21 @@ export type Database = {
     Functions: {
       can_access_job: { Args: { _job_id: string }; Returns: boolean }
       get_current_profile_id: { Args: never; Returns: string }
+      get_public_job_status: {
+        Args: { p_token: string }
+        Returns: {
+          client_name: string
+          completed_at: string
+          completed_checklist_items: number
+          job_number: string
+          photo_count: number
+          scheduled_date: string
+          status: Database["public"]["Enums"]["job_status"]
+          technician_name: string
+          title: string
+          total_checklist_items: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

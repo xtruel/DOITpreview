@@ -1,93 +1,126 @@
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
-  CheckCircle2,
+  Briefcase,
+  CheckCircle,
   Clock,
-  MapPin,
   User,
   Calendar,
   Camera,
-  FileText,
-  Phone,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
   Shield,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
-// Mock data for public view
-const publicJobData = {
-  id: "JB-2024-089",
-  title: "Installazione caldaia",
-  company: {
-    name: "DOIT Services",
-    logo: null,
-    phone: "+39 02 1234567",
-  },
-  client: "Mario Rossi",
-  address: "Via Roma 123, Milano",
-  status: "inProgress" as const,
-  progress: 65,
-  scheduledDate: "4 Febbraio 2026",
-  scheduledTime: "09:00 - 12:00",
-  technician: "Marco Bianchi",
-  updates: [
-    {
-      id: 1,
-      timestamp: "09:15",
-      title: "Lavoro iniziato",
-      description: "Il tecnico è arrivato sul posto",
-      type: "status",
-    },
-    {
-      id: 2,
-      timestamp: "09:30",
-      title: "Foto prima dell'intervento",
-      description: "Documentazione stato iniziale",
-      type: "photo",
-      photos: ["/placeholder.svg", "/placeholder.svg"],
-    },
-    {
-      id: 3,
-      timestamp: "10:45",
-      title: "Rimozione vecchia caldaia",
-      description: "Completata rimozione impianto esistente",
-      type: "progress",
-    },
-    {
-      id: 4,
-      timestamp: "11:30",
-      title: "Installazione in corso",
-      description: "Montaggio nuova caldaia a condensazione",
-      type: "progress",
-    },
-  ],
-  steps: [
-    { id: 1, label: "Schedulato", completed: true },
-    { id: 2, label: "In corso", completed: true, current: true },
-    { id: 3, label: "Completato", completed: false },
-    { id: 4, label: "Documentato", completed: false },
-  ],
-};
+interface PublicJobData {
+  job_number: string;
+  title: string;
+  status: string;
+  scheduled_date: string | null;
+  completed_at: string | null;
+  client_name: string;
+  technician_name: string | null;
+  total_checklist_items: number;
+  completed_checklist_items: number;
+  photo_count: number;
+}
 
-const statusColors = {
-  scheduled: "bg-info/20 text-info",
-  inProgress: "bg-primary/20 text-primary",
-  paused: "bg-warning/20 text-warning",
-  completed: "bg-success/20 text-success",
-  toBill: "bg-secondary text-secondary-foreground",
-};
-
-const statusLabels = {
-  scheduled: "Schedulato",
-  inProgress: "In Corso",
+const statusLabels: Record<string, string> = {
+  scheduled: "Programmato",
+  in_progress: "In Corso",
   paused: "In Pausa",
   completed: "Completato",
-  toBill: "Completato",
+  to_bill: "Completato",
+  billed: "Completato",
+};
+
+const statusColors: Record<string, string> = {
+  scheduled: "bg-info/20 text-info",
+  in_progress: "bg-primary/20 text-primary",
+  paused: "bg-warning/20 text-warning",
+  completed: "bg-success/20 text-success",
+  to_bill: "bg-success/20 text-success",
+  billed: "bg-success/20 text-success",
 };
 
 export default function PublicJobStatus() {
-  const { id } = useParams();
+  const { token } = useParams<{ token: string }>();
+  const [job, setJob] = useState<PublicJobData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchJobStatus() {
+      if (!token) {
+        setError("Link non valido");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error: rpcError } = await supabase
+          .rpc('get_public_job_status', { p_token: token });
+
+        if (rpcError) throw rpcError;
+
+        if (!data || data.length === 0) {
+          setError("Lavoro non trovato o link scaduto");
+        } else {
+          setJob(data[0]);
+        }
+      } catch (err) {
+        console.error("Error fetching job status:", err);
+        setError("Errore nel caricamento dei dati");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchJobStatus();
+  }, [token]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error || !job) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full text-center p-8">
+          <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Errore</h2>
+          <p className="text-muted-foreground">{error || "Lavoro non trovato"}</p>
+        </Card>
+      </div>
+    );
+  }
+
+  const progress = job.total_checklist_items > 0
+    ? Math.round((job.completed_checklist_items / job.total_checklist_items) * 100)
+    : job.status === "completed" || job.status === "to_bill" || job.status === "billed"
+    ? 100
+    : job.status === "in_progress"
+    ? 50
+    : 0;
+
+  const isCompleted = job.status === "completed" || job.status === "to_bill" || job.status === "billed";
+
+  const steps = [
+    { id: 1, label: "Schedulato", completed: true },
+    { id: 2, label: "In corso", completed: job.status !== "scheduled", current: job.status === "in_progress" || job.status === "paused" },
+    { id: 3, label: "Completato", completed: isCompleted },
+    { id: 4, label: "Documentato", completed: isCompleted && job.photo_count > 0 },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background">
@@ -97,19 +130,17 @@ export default function PublicJobStatus() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-lg">D</span>
+                <Briefcase className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="font-semibold text-foreground">
-                  {publicJobData.company.name}
-                </h1>
+                <h1 className="font-semibold text-foreground">DOIT</h1>
                 <p className="text-xs text-muted-foreground">
-                  Lavoro #{publicJobData.id}
+                  Lavoro #{job.job_number}
                 </p>
               </div>
             </div>
-            <Badge className={statusColors[publicJobData.status]}>
-              {statusLabels[publicJobData.status]}
+            <Badge className={statusColors[job.status] || statusColors.scheduled}>
+              {statusLabels[job.status] || job.status}
             </Badge>
           </div>
         </div>
@@ -122,22 +153,22 @@ export default function PublicJobStatus() {
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
                 <span className="text-3xl font-bold text-primary">
-                  {publicJobData.progress}%
+                  {progress}%
                 </span>
               </div>
               <h2 className="text-xl font-semibold text-foreground mb-1">
-                {publicJobData.title}
+                {job.title}
               </h2>
               <p className="text-muted-foreground">
-                Il tuo lavoro è in corso
+                {isCompleted ? "Lavoro completato" : "Il tuo lavoro è in corso"}
               </p>
             </div>
 
-            <Progress value={publicJobData.progress} className="h-3 mb-6" />
+            <Progress value={progress} className="h-3 mb-6" />
 
             {/* Steps */}
             <div className="flex justify-between">
-              {publicJobData.steps.map((step, index) => (
+              {steps.map((step) => (
                 <div key={step.id} className="flex flex-col items-center flex-1">
                   <div
                     className={cn(
@@ -177,127 +208,85 @@ export default function PublicJobStatus() {
           <CardContent className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
-                <Calendar className="w-4 h-4 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">{publicJobData.scheduledDate}</p>
-                <p className="text-xs text-muted-foreground">{publicJobData.scheduledTime}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
-                <MapPin className="w-4 h-4 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">{publicJobData.address}</p>
-                <p className="text-xs text-muted-foreground">Indirizzo</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
                 <User className="w-4 h-4 text-muted-foreground" />
               </div>
               <div>
-                <p className="text-sm font-medium">{publicJobData.technician}</p>
-                <p className="text-xs text-muted-foreground">Tecnico assegnato</p>
+                <p className="text-sm font-medium">{job.client_name}</p>
+                <p className="text-xs text-muted-foreground">Cliente</p>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Updates Timeline */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Aggiornamenti</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {publicJobData.updates.map((update, index) => (
-                <div key={update.id} className="flex gap-3">
-                  <div className="flex flex-col items-center">
-                    <div
-                      className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-                        update.type === "photo"
-                          ? "bg-info/20 text-info"
-                          : update.type === "status"
-                          ? "bg-success/20 text-success"
-                          : "bg-primary/20 text-primary"
-                      )}
-                    >
-                      {update.type === "photo" ? (
-                        <Camera className="w-4 h-4" />
-                      ) : update.type === "status" ? (
-                        <CheckCircle2 className="w-4 h-4" />
-                      ) : (
-                        <Clock className="w-4 h-4" />
-                      )}
-                    </div>
-                    {index < publicJobData.updates.length - 1 && (
-                      <div className="w-0.5 h-full bg-border mt-2" />
-                    )}
-                  </div>
-
-                  <div className="flex-1 pb-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-sm">{update.title}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {update.timestamp}
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {update.description}
-                    </p>
-
-                    {update.photos && (
-                      <div className="flex gap-2 mt-3">
-                        {update.photos.map((photo, i) => (
-                          <div
-                            key={i}
-                            className="w-20 h-20 rounded-lg bg-secondary overflow-hidden"
-                          >
-                            <img
-                              src={photo}
-                              alt=""
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Contact */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
+            {job.scheduled_date && (
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Phone className="w-5 h-5 text-primary" />
+                <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">Hai domande?</p>
-                  <p className="text-xs text-muted-foreground">
-                    Contattaci per assistenza
+                  <p className="text-sm font-medium">
+                    {new Date(job.scheduled_date).toLocaleDateString("it-IT", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
                   </p>
+                  <p className="text-xs text-muted-foreground">Data programmata</p>
                 </div>
               </div>
-              <a
-                href={`tel:${publicJobData.company.phone}`}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-              >
-                Chiama
-              </a>
-            </div>
+            )}
+
+            {job.technician_name && (
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
+                  <User className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{job.technician_name}</p>
+                  <p className="text-xs text-muted-foreground">Tecnico assegnato</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-4">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="flex items-center justify-center gap-1 text-2xl font-bold text-primary">
+                <CheckCircle className="w-5 h-5" />
+                {job.completed_checklist_items}/{job.total_checklist_items}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Attività completate</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="flex items-center justify-center gap-1 text-2xl font-bold text-primary">
+                <Camera className="w-5 h-5" />
+                {job.photo_count}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Foto caricate</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Completion Message */}
+        {isCompleted && (
+          <Card className="border-success/30 bg-success/5">
+            <CardContent className="p-4 text-center">
+              <CheckCircle className="w-12 h-12 text-success mx-auto mb-3" />
+              <h3 className="font-semibold text-lg mb-1">Lavoro Completato!</h3>
+              <p className="text-sm text-muted-foreground">
+                Il lavoro è stato portato a termine con successo. Grazie per aver scelto i nostri servizi.
+              </p>
+              {job.completed_at && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Completato il {new Date(job.completed_at).toLocaleDateString("it-IT")}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Footer */}
         <div className="text-center py-6">
@@ -306,7 +295,7 @@ export default function PublicJobStatus() {
             <span className="text-xs">Pagina sicura e protetta</span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Powered by <span className="font-semibold text-primary">APP DOIT</span>
+            Powered by <span className="font-semibold text-primary">DOIT</span>
           </p>
         </div>
       </main>
