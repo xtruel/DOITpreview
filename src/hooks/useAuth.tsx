@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL?.toLowerCase();
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
 
 type AppRole = 'admin' | 'technician' | 'client';
 
@@ -119,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (DEMO) {
       const demoUser = { id: 'demo-user', email } as unknown as User;
       setUser(demoUser);
+      setSession(null);
       setRole('admin');
       setProfile({
         first_name: 'Demo',
@@ -129,6 +132,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         avatar_url: null,
       });
       toast({ title: 'Accesso demo', description: 'Sei entrato come Admin demo.' });
+      return;
+    }
+    if (ADMIN_EMAIL && ADMIN_PASSWORD && email.toLowerCase() === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+      const adminUser = { id: 'local-admin', email } as unknown as User;
+      setUser(adminUser);
+      setSession(null);
+      setRole('admin');
+      setProfile({
+        first_name: 'Admin',
+        last_name: 'DOIT',
+        email,
+        phone: null,
+        company_name: 'DOIT',
+        avatar_url: null,
+      });
+      toast({ title: 'Accesso admin', description: 'Sei entrato come Admin.' });
       return;
     }
     const { error } = await supabase.auth.signInWithPassword({
@@ -184,7 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    if (DEMO) {
+    if (DEMO || !session || user?.id === 'local-admin') {
       setUser(null);
       setSession(null);
       setRole(null);
