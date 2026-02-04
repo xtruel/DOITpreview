@@ -156,7 +156,7 @@ export default function Lavori() {
         <TabsContent value="all" className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {allJobs.map((job) => (
-              <JobCard key={job.id} {...job} />
+              <JobCard key={job.id} {...job} onClick={() => window.location.href = `/lavori/${job.id}`} />
             ))}
           </div>
         </TabsContent>
@@ -167,7 +167,7 @@ export default function Lavori() {
               {allJobs
                 .filter((job) => job.status === filter.value)
                 .map((job) => (
-                  <JobCard key={job.id} {...job} />
+                  <JobCard key={job.id} {...job} onClick={() => window.location.href = `/lavori/${job.id}`} />
                 ))}
             </div>
           </TabsContent>
