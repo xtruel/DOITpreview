@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from './useAuth';
 
+const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
+
 export interface Client {
   id: string;
   name: string;
@@ -34,6 +36,12 @@ export function useClients() {
   const { data: clients = [], isLoading, error } = useQuery({
     queryKey: ['clients'],
     queryFn: async () => {
+      if (DEMO) {
+        return [
+          { id: 'c1', name: 'Mario Rossi', company: 'Rossi Service', email: 'mario@rossi.it', phone: '3331234567', address: 'Via Roma 1, Milano', notes: 'Cliente storico', tags: ['VIP'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 'c2', name: 'Laura Bianchi', company: null, email: 'laura@bianchi.it', phone: '3339876543', address: 'Corso Italia 22, Torino', notes: null, tags: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        ] as Client[];
+      }
       const { data, error } = await supabase
         .from('clients')
         .select('*')
@@ -49,6 +57,9 @@ export function useClients() {
     mutationFn: async (clientData: CreateClientData) => {
       if (!user) throw new Error('Utente non autenticato');
       
+      if (DEMO) {
+        return { id: 'demo', ...clientData } as unknown as Client;
+      }
       const { data, error } = await supabase
         .from('clients')
         .insert({
@@ -79,6 +90,9 @@ export function useClients() {
 
   const updateClient = useMutation({
     mutationFn: async ({ id, ...clientData }: Partial<Client> & { id: string }) => {
+      if (DEMO) {
+        return { id, ...clientData } as unknown as Client;
+      }
       const { data, error } = await supabase
         .from('clients')
         .update(clientData)
@@ -107,6 +121,7 @@ export function useClients() {
 
   const deleteClient = useMutation({
     mutationFn: async (id: string) => {
+      if (DEMO) return;
       const { error } = await supabase
         .from('clients')
         .delete()

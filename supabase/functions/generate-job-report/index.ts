@@ -66,16 +66,33 @@ serve(async (req) => {
       });
     }
 
-    // Generate HTML content for PDF
-    const completedItems = job.job_checklists?.filter((item: any) => item.completed) || [];
-    const totalItems = job.job_checklists?.length || 0;
+    type JobChecklistItem = { completed: boolean; item: string };
+    type JobPhoto = { file_url: string };
+    type JobSignature = { file_url: string; signer_name?: string | null; signed_at?: string | null };
+    type JobData = {
+      job_number: string;
+      title: string;
+      status: string;
+      scheduled_date?: string | null;
+      address?: string | null;
+      description?: string | null;
+      completion_notes?: string | null;
+      clients?: { name?: string | null; phone?: string | null; email?: string | null; address?: string | null };
+      job_checklists?: JobChecklistItem[];
+      job_photos?: JobPhoto[];
+      job_signatures?: JobSignature[];
+    };
+
+    const jobData = job as JobData;
+    const completedItems = jobData.job_checklists?.filter((item) => item.completed) || [];
+    const totalItems = jobData.job_checklists?.length || 0;
 
     const htmlContent = `
     <!DOCTYPE html>
     <html lang="it">
     <head>
       <meta charset="UTF-8">
-      <title>Report Lavoro - ${job.job_number}</title>
+      <title>Report Lavoro - ${jobData.job_number}</title>
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #333; line-height: 1.6; padding: 40px; }
@@ -114,42 +131,42 @@ serve(async (req) => {
           <div class="logo-sub">Gestione Lavori</div>
         </div>
         <div style="text-align: right;">
-          <div class="job-number">${job.job_number}</div>
-          <div class="status-badge status-${job.status}">${
-            job.status === 'completed' ? 'Completato' : 
-            job.status === 'in_progress' ? 'In Corso' : 
-            job.status
+          <div class="job-number">${jobData.job_number}</div>
+          <div class="status-badge status-${jobData.status}">${
+            jobData.status === 'completed' ? 'Completato' : 
+            jobData.status === 'in_progress' ? 'In Corso' : 
+            jobData.status
           }</div>
         </div>
       </div>
 
-      <h1 class="title">${job.title}</h1>
+      <h1 class="title">${jobData.title}</h1>
       
       <div class="section">
         <div class="info-grid">
           <div class="info-item">
             <div class="info-label">Cliente</div>
-            <div class="info-value">${job.clients?.name || '-'}</div>
+            <div class="info-value">${jobData.clients?.name || '-'}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Data</div>
-            <div class="info-value">${job.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString('it-IT') : '-'}</div>
+            <div class="info-value">${jobData.scheduled_date ? new Date(jobData.scheduled_date).toLocaleDateString('it-IT') : '-'}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Indirizzo</div>
-            <div class="info-value">${job.address || job.clients?.address || '-'}</div>
+            <div class="info-value">${jobData.address || jobData.clients?.address || '-'}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Contatto</div>
-            <div class="info-value">${job.clients?.phone || job.clients?.email || '-'}</div>
+            <div class="info-value">${jobData.clients?.phone || jobData.clients?.email || '-'}</div>
           </div>
         </div>
       </div>
 
-      ${job.description ? `
+      ${jobData.description ? `
       <div class="section">
         <div class="section-title">Descrizione Lavoro</div>
-        <p>${job.description}</p>
+        <p>${jobData.description}</p>
       </div>
       ` : ''}
 
@@ -160,7 +177,7 @@ serve(async (req) => {
         </div>
         ${totalItems > 0 ? `
         <ul class="checklist" style="margin-top: 15px;">
-          ${job.job_checklists?.map((item: any) => `
+          ${jobData.job_checklists?.map((item) => `
             <li>
               <span class="check-icon ${item.completed ? 'check-done' : 'check-pending'}">${item.completed ? '✓' : ''}</span>
               <span>${item.item}</span>
@@ -170,32 +187,32 @@ serve(async (req) => {
         ` : '<p style="color: #999;">Nessuna attività in checklist</p>'}
       </div>
 
-      ${job.job_photos?.length > 0 ? `
+      ${jobData.job_photos?.length > 0 ? `
       <div class="section">
-        <div class="section-title">Documentazione Fotografica (${job.job_photos.length})</div>
+        <div class="section-title">Documentazione Fotografica (${jobData.job_photos.length})</div>
         <div class="photos-grid">
-          ${job.job_photos.slice(0, 9).map((photo: any) => `
+          ${jobData.job_photos.slice(0, 9).map((photo) => `
             <img src="${photo.file_url}" alt="Foto lavoro" class="photo" />
           `).join('')}
         </div>
       </div>
       ` : ''}
 
-      ${job.job_signatures?.length > 0 ? `
+      ${jobData.job_signatures?.length > 0 ? `
       <div class="section">
         <div class="section-title">Firma Cliente</div>
         <div class="signature-container">
-          <img src="${job.job_signatures[0].file_url}" alt="Firma cliente" class="signature" />
-          ${job.job_signatures[0].signer_name ? `<p style="margin-top: 10px;">${job.job_signatures[0].signer_name}</p>` : ''}
-          <p style="font-size: 12px; color: #999;">${new Date(job.job_signatures[0].signed_at).toLocaleDateString('it-IT')}</p>
+          <img src="${jobData.job_signatures[0].file_url}" alt="Firma cliente" class="signature" />
+          ${jobData.job_signatures[0].signer_name ? `<p style="margin-top: 10px;">${jobData.job_signatures[0].signer_name}</p>` : ''}
+          <p style="font-size: 12px; color: #999;">${jobData.job_signatures[0].signed_at ? new Date(jobData.job_signatures[0].signed_at).toLocaleDateString('it-IT') : ''}</p>
         </div>
       </div>
       ` : ''}
 
-      ${job.completion_notes ? `
+      ${jobData.completion_notes ? `
       <div class="section">
         <div class="section-title">Note di Completamento</div>
-        <p>${job.completion_notes}</p>
+        <p>${jobData.completion_notes}</p>
       </div>
       ` : ''}
 

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+const DEMO = import.meta.env.VITE_DEMO_MODE === "true";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Clienti from "./pages/Clienti";
@@ -22,6 +23,9 @@ const queryClient = new QueryClient();
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
+  if (DEMO) {
+    return <>{children}</>;
+  }
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

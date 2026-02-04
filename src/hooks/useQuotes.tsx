@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from './useAuth';
 
+const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
+
 export type QuoteStatus = 'draft' | 'sent' | 'approved' | 'rejected' | 'converted';
 
 export interface Quote {
@@ -51,6 +53,48 @@ export function useQuotes(status?: QuoteStatus) {
   const { data: quotes = [], isLoading, error } = useQuery({
     queryKey: ['quotes', status],
     queryFn: async () => {
+      if (DEMO) {
+        const demoQuotes: Quote[] = [
+          {
+            id: 'q1',
+            quote_number: 'PR-2024-018',
+            title: 'Manutenzione impianto',
+            description: 'Manutenzione ordinaria e controllo sicurezza',
+            client_id: 'c1',
+            job_id: null,
+            status: 'sent',
+            amount: 420,
+            expiry_date: new Date(Date.now() + 7 * 86400000).toISOString(),
+            created_at: new Date(Date.now() - 4 * 86400000).toISOString(),
+            updated_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+            clients: { name: 'Mario Rossi', email: 'mario@rossi.it' },
+            quote_items: [
+              { id: 'qi1', quote_id: 'q1', description: 'Uscita tecnica', quantity: 1, unit_price: 80, sort_order: 0 },
+              { id: 'qi2', quote_id: 'q1', description: 'Ricambi', quantity: 1, unit_price: 120, sort_order: 1 },
+              { id: 'qi3', quote_id: 'q1', description: 'Manodopera', quantity: 2, unit_price: 110, sort_order: 2 },
+            ],
+          },
+          {
+            id: 'q2',
+            quote_number: 'PR-2024-019',
+            title: 'Installazione climatizzatore',
+            description: 'Installazione unità split 12000 BTU',
+            client_id: 'c2',
+            job_id: null,
+            status: 'draft',
+            amount: 980,
+            expiry_date: new Date(Date.now() + 10 * 86400000).toISOString(),
+            created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+            updated_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+            clients: { name: 'Laura Bianchi', email: 'laura@bianchi.it' },
+            quote_items: [
+              { id: 'qi4', quote_id: 'q2', description: 'Unità split', quantity: 1, unit_price: 620, sort_order: 0 },
+              { id: 'qi5', quote_id: 'q2', description: 'Installazione', quantity: 1, unit_price: 360, sort_order: 1 },
+            ],
+          },
+        ];
+        return status ? demoQuotes.filter((q) => q.status === status) : demoQuotes;
+      }
       let query = supabase
         .from('quotes')
         .select(`
@@ -75,17 +119,22 @@ export function useQuotes(status?: QuoteStatus) {
     mutationFn: async ({ items, ...quoteData }: CreateQuoteData) => {
       if (!user) throw new Error('Utente non autenticato');
       
+      if (DEMO) {
+        return { id: 'demo-quote', ...quoteData } as unknown as Quote;
+      }
       // Create quote
+      const newQuotePayload: CreateQuoteData & { created_by: string } = {
+        title: quoteData.title,
+        description: quoteData.description,
+        client_id: quoteData.client_id,
+        amount: quoteData.amount,
+        expiry_date: quoteData.expiry_date,
+        created_by: user.id,
+      };
+
       const { data: quote, error: quoteError } = await supabase
         .from('quotes')
-        .insert({
-          title: quoteData.title,
-          description: quoteData.description,
-          client_id: quoteData.client_id,
-          amount: quoteData.amount,
-          expiry_date: quoteData.expiry_date,
-          created_by: user.id,
-        } as any)
+        .insert(newQuotePayload)
         .select()
         .single();
 
@@ -126,6 +175,9 @@ export function useQuotes(status?: QuoteStatus) {
 
   const updateQuote = useMutation({
     mutationFn: async ({ id, ...quoteData }: Partial<Quote> & { id: string }) => {
+      if (DEMO) {
+        return { id, ...quoteData } as unknown as Quote;
+      }
       const { data, error } = await supabase
         .from('quotes')
         .update(quoteData)
@@ -154,6 +206,9 @@ export function useQuotes(status?: QuoteStatus) {
 
   const updateQuoteStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: QuoteStatus }) => {
+      if (DEMO) {
+        return { id, status } as unknown as Quote;
+      }
       const { data, error } = await supabase
         .from('quotes')
         .update({ status })
@@ -178,6 +233,7 @@ export function useQuotes(status?: QuoteStatus) {
 
   const deleteQuote = useMutation({
     mutationFn: async (id: string) => {
+      if (DEMO) return;
       const { error } = await supabase
         .from('quotes')
         .delete()

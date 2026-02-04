@@ -18,6 +18,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
+const DEMO = import.meta.env.VITE_DEMO_MODE === "true";
+
 interface PublicJobData {
   job_number: string;
   title: string;
@@ -57,6 +59,22 @@ export default function PublicJobStatus() {
 
   useEffect(() => {
     async function fetchJobStatus() {
+      if (DEMO) {
+        setJob({
+          job_number: "JB-2024-089",
+          title: "Installazione caldaia",
+          status: "in_progress",
+          scheduled_date: new Date().toISOString(),
+          completed_at: null,
+          client_name: "Mario Rossi",
+          technician_name: "Marco Bianchi",
+          total_checklist_items: 6,
+          completed_checklist_items: 3,
+          photo_count: 4,
+        });
+        setLoading(false);
+        return;
+      }
       if (!token) {
         setError("Link non valido");
         setLoading(false);

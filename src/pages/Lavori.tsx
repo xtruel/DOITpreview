@@ -32,7 +32,7 @@ import {
   Clock,
   User,
 } from "lucide-react";
-import { useJobs, JobStatus, CreateJobData } from "@/hooks/useJobs";
+import { useJobs, JobPriority, JobStatus, CreateJobData } from "@/hooks/useJobs";
 import { useClients } from "@/hooks/useClients";
 
 const statusLabels: Record<JobStatus, string> = {
@@ -180,7 +180,7 @@ export default function Lavori() {
                     <Label htmlFor="priority">Priorità</Label>
                     <Select
                       value={formData.priority}
-                      onValueChange={(value: any) => setFormData({ ...formData, priority: value })}
+                      onValueChange={(value) => setFormData({ ...formData, priority: value as JobPriority })}
                     >
                       <SelectTrigger>
                         <SelectValue />

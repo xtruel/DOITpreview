@@ -3,6 +3,8 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
+
 type AppRole = 'admin' | 'technician' | 'client';
 
 interface AuthContextType {
@@ -37,6 +39,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (DEMO) {
+      const demoUser = { id: 'demo-user', email: 'demo@doit.app' } as unknown as User;
+      setUser(demoUser);
+      setSession(null);
+      setRole('admin');
+      setProfile({
+        first_name: 'Demo',
+        last_name: 'Admin',
+        email: 'demo@doit.app',
+        phone: '0000000000',
+        company_name: 'DOIT',
+        avatar_url: null,
+      });
+      setLoading(false);
+      return;
+    }
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -98,6 +116,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
+    if (DEMO) {
+      const demoUser = { id: 'demo-user', email } as unknown as User;
+      setUser(demoUser);
+      setRole('admin');
+      setProfile({
+        first_name: 'Demo',
+        last_name: 'Admin',
+        email,
+        phone: null,
+        company_name: 'DOIT',
+        avatar_url: null,
+      });
+      toast({ title: 'Accesso demo', description: 'Sei entrato come Admin demo.' });
+      return;
+    }
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -119,6 +152,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
+    if (DEMO) {
+      await signIn(email, password);
+      return;
+    }
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -147,6 +184,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    if (DEMO) {
+      setUser(null);
+      setSession(null);
+      setRole(null);
+      setProfile(null);
+      return;
+    }
     const { error } = await supabase.auth.signOut();
     if (error) {
       toast({
