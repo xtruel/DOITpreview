@@ -8,8 +8,9 @@ import { DroneConfig, Level, LapRecord } from './types';
 import { LEVELS } from './levels';
 import { BetaflightConfig } from './components/BetaflightConfig';
 import { FPVSimulator } from './components/FPVSimulator';
+import { PilotProfile } from './components/PilotProfile';
 import { sound } from './components/SoundEngine';
-import { Play, Sparkles, Award, Palette, Music, Volume2, VolumeX, HelpCircle, Flame, Shield, Globe, Cpu, RotateCcw, ChevronRight, X } from 'lucide-react';
+import { Play, Sparkles, Award, Palette, Music, Volume2, VolumeX, HelpCircle, Flame, Shield, Globe, Cpu, RotateCcw, ChevronRight, X, User } from 'lucide-react';
 
 const DEFAULT_LEADERBOARDS: { [key: number]: { pilotName: string; timeMs: number; date: string; droneFrame: string }[] } = {
   1: [
@@ -36,7 +37,7 @@ const DEFAULT_LEADERBOARDS: { [key: number]: { pilotName: string; timeMs: number
 };
 
 export default function App() {
-  const [screen, setScreen] = useState<'menu' | 'simulator'>('menu');
+  const [screen, setScreen] = useState<'menu' | 'simulator' | 'profile'>('menu');
   const [selectedLevel, setSelectedLevel] = useState<Level>(LEVELS[0]);
   const [audioEnabled, setAudioEnabled] = useState<boolean>(false);
   const [isGlitching, setIsGlitching] = useState<boolean>(false);
@@ -48,10 +49,9 @@ export default function App() {
     3: null,
   });
 
-  // Default Drone Betaflight Config
+  // Default Drone Betaflight Config (persisted so the pilot's setup sticks)
   const [config, setConfig] = useState<DroneConfig>(() => {
-    const stored = localStorage.getItem('dronedoit_pilot_callsign') || 'GRAFF_RACER';
-    return {
+    const defaults: DroneConfig = {
       frameType: 'true_x',
       ledColor: '#ff2e93', // Magenta neon default
       rcRate: 1.15,
@@ -60,14 +60,22 @@ export default function App() {
       yawRate: 2.2,
       flightMode: 'ANGLE', // ANGLE is much easier for beginners using web keyboard
       cameraTilt: 25,
-      pilotCallsign: stored,
+      pilotCallsign: localStorage.getItem('dronedoit_pilot_callsign') || 'GRAFF_RACER',
     };
+    try {
+      const storedConfig = localStorage.getItem('dronedoit_config');
+      if (storedConfig) return { ...defaults, ...JSON.parse(storedConfig) };
+    } catch {
+      /* ignore malformed config */
+    }
+    return defaults;
   });
 
-  // Save pilot callsign when it changes
+  // Persist pilot callsign and the full config when they change
   useEffect(() => {
     localStorage.setItem('dronedoit_pilot_callsign', config.pilotCallsign);
-  }, [config.pilotCallsign]);
+    localStorage.setItem('dronedoit_config', JSON.stringify(config));
+  }, [config]);
 
   // Load personal bests
   useEffect(() => {
@@ -133,6 +141,10 @@ export default function App() {
     });
   };
 
+  const goToScreen = (target: 'menu' | 'profile') => {
+    triggerGlitchNavigation(() => setScreen(target));
+  };
+
   const getLeaderboardForLevel = (lvlId: number) => {
     const defaults = DEFAULT_LEADERBOARDS[lvlId] || [];
     const stored = localStorage.getItem(`dronedoit_best_${lvlId}`);
@@ -196,6 +208,20 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Pilot HQ / profile toggle (hidden while flying) */}
+          {screen !== 'simulator' && (
+            <button
+              id="btn-pilot-hq"
+              onClick={() => goToScreen(screen === 'profile' ? 'menu' : 'profile')}
+              className={`flex items-center gap-2 px-4 py-2 border-2 border-black font-black uppercase text-xs skew-box transition-all duration-150 cursor-pointer shadow-[3px_3px_0_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_#000] ${
+                screen === 'profile' ? 'bg-[#00e5ff] text-black' : 'bg-white text-black'
+              }`}
+            >
+              <User className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">{screen === 'profile' ? 'BACK TO GARAGE' : 'PILOT HQ'}</span>
+            </button>
+          )}
+
           {/* procedural soundtrack controller */}
           <button
             id="btn-toggle-audio"
@@ -213,6 +239,8 @@ export default function App() {
 
       {screen === 'simulator' ? (
         <FPVSimulator level={selectedLevel} config={config} onBackToMenu={handleBackToMenu} />
+      ) : screen === 'profile' ? (
+        <PilotProfile config={config} onChange={setConfig} onEnterGarage={() => goToScreen('menu')} />
       ) : (
         <main className="flex-1 flex flex-col lg:flex-row p-6 md:p-8 gap-8 relative z-10 max-w-7xl mx-auto w-full">
           

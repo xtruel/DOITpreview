@@ -57,7 +57,7 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
   const [achievementToast, setAchievementToast] = useState<string | null>(null);
 
   // Cumulative statistics for current flight
-  const runStatsRef = useRef<{ distance: number; gates: number }>({ distance: 0, gates: 0 });
+  const runStatsRef = useRef<{ distance: number; gates: number; topSpeed: number }>({ distance: 0, gates: 0, topSpeed: 0 });
 
   const [cumulativeDist, setCumulativeDist] = useState<number>(0);
   const [cumulativeGates, setCumulativeGates] = useState<number>(0);
@@ -226,8 +226,14 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
     // Check achievements
     checkAchievements(newDist, newGates);
     
+    // Persist best top speed (km/h) across all runs
+    const storedTop = parseFloat(localStorage.getItem('dronedoit_stat_topspeed') || '0');
+    if (runStatsRef.current.topSpeed > storedTop) {
+      localStorage.setItem('dronedoit_stat_topspeed', Math.round(runStatsRef.current.topSpeed).toString());
+    }
+
     // Reset run stats for next run
-    runStatsRef.current = { distance: 0, gates: 0 };
+    runStatsRef.current = { distance: 0, gates: 0, topSpeed: 0 };
   };
 
   const resetSimulation = () => {
@@ -523,6 +529,9 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
       const rawSpeed = Math.sqrt(p.vel.x * p.vel.x + p.vel.y * p.vel.y + p.vel.z * p.vel.z);
       speedRef.current = Math.round(rawSpeed * 12); // scaled for FPV sensation
       altitudeRef.current = Math.max(0, Math.round(p.pos.y));
+      if (speedRef.current > runStatsRef.current.topSpeed) {
+        runStatsRef.current.topSpeed = speedRef.current;
+      }
 
       // Slow battery drain (computed every frame, flushed to the HUD on a timer)
       let drain = (0.5 + inputs.throttle * 2.2) * dt;
@@ -634,6 +643,8 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
       setGameState('crashed');
       sound.stopMotor();
       sound.playCrash();
+      const crashes = parseInt(localStorage.getItem('dronedoit_stat_crashes') || '0', 10) + 1;
+      localStorage.setItem('dronedoit_stat_crashes', crashes.toString());
       commitRunStats();
     };
 
@@ -1017,6 +1028,10 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
   }, []);
 
   const handleRaceFinished = () => {
+    // Career counter: races finished
+    const races = parseInt(localStorage.getItem('dronedoit_stat_races') || '0', 10) + 1;
+    localStorage.setItem('dronedoit_stat_races', races.toString());
+
     // Check for personal record
     const finalTime = Date.now() - physicsRef.current.startTime;
     const isNew = personalBestRef.current === null || finalTime < personalBestRef.current;
