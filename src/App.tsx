@@ -33,7 +33,21 @@ const DEFAULT_LEADERBOARDS: { [key: number]: { pilotName: string; timeMs: number
     { pilotName: "CORN", timeMs: 51200, date: "06/15/2026", droneFrame: "true_x" },
     { pilotName: "TAB", timeMs: 56900, date: "06/21/2026", droneFrame: "deadcat" },
     { pilotName: "MEW", timeMs: 62400, date: "06/22/2026", droneFrame: "toothpick" },
-  ]
+  ],
+  4: [
+    { pilotName: "BEAT", timeMs: 49100, date: "06/24/2026", droneFrame: "true_x" },
+    { pilotName: "GUM", timeMs: 53400, date: "06/23/2026", droneFrame: "deadcat" },
+    { pilotName: "TAB", timeMs: 58200, date: "06/25/2026", droneFrame: "toothpick" },
+    { pilotName: "CORN", timeMs: 63700, date: "06/22/2026", droneFrame: "true_x" },
+    { pilotName: "MEW", timeMs: 69900, date: "06/26/2026", droneFrame: "deadcat" },
+  ],
+  5: [
+    { pilotName: "GUM", timeMs: 74600, date: "06/26/2026", droneFrame: "toothpick" },
+    { pilotName: "BEAT", timeMs: 79800, date: "06/27/2026", droneFrame: "true_x" },
+    { pilotName: "TAB", timeMs: 86400, date: "06/25/2026", droneFrame: "deadcat" },
+    { pilotName: "CORN", timeMs: 92100, date: "06/24/2026", droneFrame: "true_x" },
+    { pilotName: "MEW", timeMs: 99500, date: "06/27/2026", droneFrame: "toothpick" },
+  ],
 };
 
 export default function App() {
@@ -302,10 +316,11 @@ export default function App() {
                       isSelected ? 'ring-4 ring-black scale-[1.01]' : 'opacity-85 hover:opacity-100'
                     }`}
                   >
-                    {/* Level Number Ribbon */}
-                    <div className={`w-14 flex items-center justify-center border-r-4 border-black ${
-                      lvl.id === 1 ? 'bg-[#ff6b00]' : lvl.id === 2 ? 'bg-[#ff2e93]' : 'bg-[#b6ff00]'
-                    }`}>
+                    {/* Level Number Ribbon (uses the level's theme colour) */}
+                    <div
+                      className="w-14 flex items-center justify-center border-r-4 border-black"
+                      style={{ backgroundColor: lvl.theme.primary }}
+                    >
                       <span className="rotate-[-90deg] font-black whitespace-nowrap text-xl uppercase tracking-wider text-black">
                         {lvl.difficulty}
                       </span>

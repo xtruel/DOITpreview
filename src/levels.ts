@@ -3,11 +3,61 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Level } from './types';
+import { Gate, Level } from './types';
 
 // Background concept art lives in /public/images and is resolved against the
 // Vite base URL so it works in dev (/) and on GitHub Pages (/DOITpreview/).
 const IMG = `${import.meta.env.BASE_URL}images/`;
+
+/**
+ * Procedurally build a long serpentine course. Gates wind left/right (ampX) and
+ * rise/fall (ampY) along Z, alternating hoops and squares with varying size. Each
+ * gate is auto-oriented to face the direction of travel so long courses read well.
+ * This keeps "longer / more complex worlds" trivial to author and tune.
+ */
+function serpentineCourse(opts: {
+  count: number;
+  startZ?: number;
+  spacing?: number;
+  ampX?: number;
+  ampY?: number;
+  baseY?: number;
+  freqX?: number;
+  freqY?: number;
+  sizeMin?: number;
+  sizeMax?: number;
+}): Gate[] {
+  const {
+    count, startZ = 80, spacing = 85, ampX = 40, ampY = 14,
+    baseY = 14, freqX = 0.7, freqY = 1.1, sizeMin = 14, sizeMax = 22,
+  } = opts;
+
+  // First pass: positions.
+  const pts = Array.from({ length: count }, (_, i) => ({
+    x: Math.sin(i * freqX) * ampX,
+    y: baseY + Math.sin(i * freqY + 0.5) * ampY,
+    z: startZ + i * spacing,
+  }));
+
+  return pts.map((pt, i) => {
+    const next = pts[i + 1] ?? { x: pt.x, y: pt.y, z: pt.z + spacing };
+    const yaw = Math.atan2(next.x - pt.x, next.z - pt.z);
+    const pitch = Math.atan2(next.y - pt.y, next.z - pt.z) * 0.5;
+    // Deterministic size wobble (no Math.random so courses are stable).
+    const t = (Math.sin(i * 1.7) + 1) / 2;
+    const size = Math.round(sizeMin + t * (sizeMax - sizeMin));
+    return {
+      id: i + 1,
+      x: Math.round(pt.x * 10) / 10,
+      y: Math.round(pt.y * 10) / 10,
+      z: pt.z,
+      yaw: Math.round(yaw * 100) / 100,
+      pitch: Math.round(pitch * 100) / 100,
+      size,
+      type: i % 3 === 1 ? 'square' : 'hoop',
+    };
+  });
+}
 
 export const LEVELS: Level[] = [
   {
@@ -84,5 +134,37 @@ export const LEVELS: Level[] = [
       { id: 7, x: 0, y: -5, z: 520, yaw: 0.1, pitch: -0.1, size: 14, type: 'hoop' },
       { id: 8, x: 0, y: 10, z: 600, yaw: 0, pitch: 0, size: 16, type: 'hoop' },
     ],
+  },
+  {
+    id: 4,
+    name: "Neon Skyline",
+    subtitle: "ROOFTOP EXPRESS",
+    difficulty: "MEDIUM",
+    backgroundImage: `${IMG}world_arena.jpg`,
+    description: "A long flowing cruise across the floating Y2K skyline. Wide sweeping S-curves over the rooftops — keep your speed lines clean across the longest run yet.",
+    parTimeMs: 52000,
+    theme: {
+      primary: "#00e5ff", // Cyan
+      secondary: "#b6ff00", // Lime
+      glow: "rgba(0, 229, 255, 0.6)",
+      textColor: "text-[#00e5ff]",
+    },
+    gates: serpentineCourse({ count: 14, startZ: 80, spacing: 95, ampX: 52, ampY: 16, baseY: 18, freqX: 0.6, freqY: 1.0, sizeMin: 15, sizeMax: 22 }),
+  },
+  {
+    id: 5,
+    name: "Megaplex Mile",
+    subtitle: "ENDLESS GRAFFITI RUN",
+    difficulty: "HARD",
+    backgroundImage: `${IMG}intro_screen.jpg`,
+    description: "The marathon. A serpentine megacourse weaving deep through the city with big vertical swings and tight gates. Stamina, precision and battery management decide it.",
+    parTimeMs: 78000,
+    theme: {
+      primary: "#ff2e93", // Hot Magenta
+      secondary: "#00e5ff", // Cyan
+      glow: "rgba(255, 46, 147, 0.6)",
+      textColor: "text-[#ff2e93]",
+    },
+    gates: serpentineCourse({ count: 18, startZ: 90, spacing: 100, ampX: 62, ampY: 28, baseY: 24, freqX: 0.5, freqY: 0.85, sizeMin: 12, sizeMax: 18 }),
   }
 ];
