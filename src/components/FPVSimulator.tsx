@@ -334,46 +334,56 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
       const p = physicsRef.current;
       const inputs = p.inputs;
 
-      // Handle custom controls based on selected layout
+      // Read raw stick TARGETS from the keyboard for the active layout, then
+      // smooth the applied inputs toward them so on/off keys feel analogue.
       // Standard FPV Mode 2: Left stick is Throttle/Yaw, Right stick is Pitch/Roll
+      let tPitch = 0, tRoll = 0, tYaw = 0;
       if (controlLayoutRef.current === 'standard') {
-        // Throttle (W/S)
+        // Throttle (W/S) - already a smooth ramp
         if (keysPressed.current['w']) inputs.throttle = Math.min(1, inputs.throttle + 2 * dt);
         else if (keysPressed.current['s']) inputs.throttle = Math.max(0, inputs.throttle - 2 * dt);
 
-        // Yaw (A/D) - horizontal rotation
-        if (keysPressed.current['a']) inputs.yaw = -1;
-        else if (keysPressed.current['d']) inputs.yaw = 1;
-        else inputs.yaw = 0;
+        // Yaw (A/D)
+        if (keysPressed.current['a']) tYaw = -1;
+        else if (keysPressed.current['d']) tYaw = 1;
 
-        // Pitch (Up Arrow / I) - nose down/up
-        if (keysPressed.current['arrowup'] || keysPressed.current['i']) inputs.pitch = 1; // nose down -> fly forward
-        else if (keysPressed.current['arrowdown'] || keysPressed.current['k']) inputs.pitch = -1; // nose up
-        else inputs.pitch = 0;
+        // Pitch (Up/I = nose down -> fly forward, Down/K = nose up)
+        if (keysPressed.current['arrowup'] || keysPressed.current['i']) tPitch = 1;
+        else if (keysPressed.current['arrowdown'] || keysPressed.current['k']) tPitch = -1;
 
-        // Roll (Left Arrow / J) - tilt left/right
-        if (keysPressed.current['arrowleft'] || keysPressed.current['j']) inputs.roll = -1;
-        else if (keysPressed.current['arrowright'] || keysPressed.current['l']) inputs.roll = 1;
-        else inputs.roll = 0;
+        // Roll (Left/J, Right/L)
+        if (keysPressed.current['arrowleft'] || keysPressed.current['j']) tRoll = -1;
+        else if (keysPressed.current['arrowright'] || keysPressed.current['l']) tRoll = 1;
       } else {
         // WASD Mode (Casual WASD fly)
-        if (keysPressed.current['w']) inputs.pitch = 1;
-        else if (keysPressed.current['s']) inputs.pitch = -1;
-        else inputs.pitch = 0;
+        if (keysPressed.current['w']) tPitch = 1;
+        else if (keysPressed.current['s']) tPitch = -1;
 
-        if (keysPressed.current['a']) inputs.roll = -1;
-        else if (keysPressed.current['d']) inputs.roll = 1;
-        else inputs.roll = 0;
+        if (keysPressed.current['a']) tRoll = -1;
+        else if (keysPressed.current['d']) tRoll = 1;
 
         // Space/Shift for throttle
         if (keysPressed.current[' ']) inputs.throttle = Math.min(1, inputs.throttle + 2 * dt);
         else if (keysPressed.current['shift']) inputs.throttle = Math.max(0, inputs.throttle - 2 * dt);
 
         // Arrow keys for Yaw
-        if (keysPressed.current['arrowleft']) inputs.yaw = -1;
-        else if (keysPressed.current['arrowright']) inputs.yaw = 1;
-        else inputs.yaw = 0;
+        if (keysPressed.current['arrowleft']) tYaw = -1;
+        else if (keysPressed.current['arrowright']) tYaw = 1;
       }
+
+      // --- Analogue stick smoothing -------------------------------------------
+      // Ramp the applied inputs toward the raw targets instead of snapping. This
+      // is the single biggest "feel" upgrade for keyboard FPV: gentle stick rise
+      // and fall, no jerk. Max deflection (±1) is still reached when a key is held,
+      // so top rates are unchanged. Yaw is a touch snappier than pitch/roll.
+      const stickEase = Math.min(1, 13 * dt);
+      const yawEase = Math.min(1, 16 * dt);
+      inputs.pitch += (tPitch - inputs.pitch) * stickEase;
+      inputs.roll += (tRoll - inputs.roll) * stickEase;
+      inputs.yaw += (tYaw - inputs.yaw) * yawEase;
+      if (Math.abs(inputs.pitch) < 0.001) inputs.pitch = 0;
+      if (Math.abs(inputs.roll) < 0.001) inputs.roll = 0;
+      if (Math.abs(inputs.yaw) < 0.001) inputs.yaw = 0;
 
       // Live engine audio response
       sound.setThrottle(inputs.throttle);
