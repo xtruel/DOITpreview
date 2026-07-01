@@ -261,7 +261,7 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
     setCurrentGateIdx(0);
     setBattery(100);
     setSpeed(0);
-    setAltitude(12);
+    setAltitude(18);
     setCollisionActive(false);
     setGraffitiSprayed(false);
     setIsNewRecord(false);
@@ -278,17 +278,22 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
     batteryRef.current = 100;
     turboEnergyRef.current = 100;
     speedRef.current = 0;
-    altitudeRef.current = 12;
+    altitudeRef.current = 18;
     lapTimeRef.current = 0;
     hudAccumRef.current = 0;
 
-    // Initial position slightly behind the landing pad facing the first gate
-    physicsRef.current.pos = { x: 0, y: 12, z: -10 };
+    // Start the drone HOVERING instead of at zero throttle, so it holds altitude
+    // at launch instead of dropping to the ground before the pilot grabs the sticks.
+    // Hover point ≈ gravity/maxThrust ≈ 0.37; 0.40 gives a soft, controllable climb.
+    const HOVER_THROTTLE = 0.4;
+
+    // Initial position: airborne over the launch pad, facing the first gate
+    physicsRef.current.pos = { x: 0, y: 18, z: -10 };
     physicsRef.current.vel = { x: 0, y: 0, z: 0 };
     physicsRef.current.rot = { pitch: 0, roll: 0, yaw: 0 };
     physicsRef.current.angVel = { pitch: 0, roll: 0, yaw: 0 };
-    physicsRef.current.throttle = 0;
-    physicsRef.current.inputs = { pitch: 0, roll: 0, yaw: 0, throttle: 0 };
+    physicsRef.current.throttle = HOVER_THROTTLE;
+    physicsRef.current.inputs = { pitch: 0, roll: 0, yaw: 0, throttle: HOVER_THROTTLE };
     physicsRef.current.telemetryLog = [];
     physicsRef.current.ghostPlaybackIdx = 0;
     physicsRef.current.startTime = Date.now() + 3000; // 3 seconds countdown
