@@ -101,7 +101,8 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
   // We mirror everything the loop reads into refs and keep the effect deps stable.
   const gameStateRef = useRef(gameState);
   const currentGateIdxRef = useRef(0);
-  const controlLayoutRef = useRef<'standard' | 'wasd'>('standard');
+  const controlLayoutRef = useRef<'standard' | 'wasd' | 'mouse'>('mouse');
+  const mouseDeltaRef = useRef({ x: 0, y: 0 });
   const collisionActiveRef = useRef(false);
   const lowBatteryRef = useRef(false);
   const turboActiveRef = useRef(false);
@@ -127,8 +128,36 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
   const levelImageRef = useRef<HTMLImageElement | null>(null);
 
   // Keyboard layout tip
-  const [controlLayout, setControlLayout] = useState<'standard' | 'wasd'>('standard');
+  const [controlLayout, setControlLayout] = useState<'standard' | 'wasd' | 'mouse'>('mouse');
   useEffect(() => { controlLayoutRef.current = controlLayout; }, [controlLayout]);
+
+  // Mouse-look for the arcade "mouse" mode: click the view to capture the pointer,
+  // then mouse movement orients the drone (X = yaw, Y = pitch).
+  const [pointerLocked, setPointerLocked] = useState(false);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const onClick = () => {
+      if (controlLayoutRef.current === 'mouse' && gameStateRef.current === 'flying') {
+        canvas.requestPointerLock?.();
+      }
+    };
+    const onMove = (e: MouseEvent) => {
+      if (document.pointerLockElement === canvas) {
+        mouseDeltaRef.current.x += e.movementX || 0;
+        mouseDeltaRef.current.y += e.movementY || 0;
+      }
+    };
+    const onLockChange = () => setPointerLocked(document.pointerLockElement === canvas);
+    canvas.addEventListener('click', onClick);
+    window.addEventListener('mousemove', onMove);
+    document.addEventListener('pointerlockchange', onLockChange);
+    return () => {
+      canvas.removeEventListener('click', onClick);
+      window.removeEventListener('mousemove', onMove);
+      document.removeEventListener('pointerlockchange', onLockChange);
+    };
+  }, []);
 
   // Detect a connected controller (browsers require a button press first)
   const [gamepadConnected, setGamepadConnected] = useState(false);
@@ -361,12 +390,64 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
     let animationId: number;
     let lastTime = performance.now();
 
+    // Arcade "mouse + WASD" controls (default, beginner friendly): the mouse
+    // orients the drone (X = yaw, Y = pitch), W/S fly forward/back along the
+    // heading, A/D strafe, Space/Ctrl climb/descend. No gravity — it never
+    // precipitates — and velocities ease to targets for a smooth, forgiving feel.
+    const arcadeControls = (p: typeof physicsRef.current, dt: number) => {
+      const md = mouseDeltaRef.current;
+      const mSens = 0.0022;
+      let yaw = p.rot.yaw + md.x * mSens;
+      let pitch = p.rot.pitch + md.y * mSens;
+      md.x = 0; md.y = 0;
+      const k = keysPressed.current;
+      // Arrow-key fallback for players without a mouse locked
+      if (k['arrowleft']) yaw -= 1.5 * dt;
+      if (k['arrowright']) yaw += 1.5 * dt;
+      if (k['arrowup']) pitch -= 1.1 * dt;
+      if (k['arrowdown']) pitch += 1.1 * dt;
+      pitch = Math.max(-0.7, Math.min(0.7, pitch));
+      p.rot.yaw = yaw % (Math.PI * 2);
+      p.rot.pitch = pitch;
+      p.rot.roll += (0 - p.rot.roll) * Math.min(1, 6 * dt); // auto-level roll
+
+      const fwd = (k['w'] ? 1 : 0) - (k['s'] ? 1 : 0);
+      const strafe = (k['d'] ? 1 : 0) - (k['a'] ? 1 : 0);
+      const climb = (k[' '] ? 1 : 0) - ((k['shift'] || k['control']) ? 1 : 0);
+      const cy = Math.cos(yaw), sy = Math.sin(yaw);
+      const SPEED = 7;    // horizontal cruise target velocity
+      const VSPEED = 3.2; // vertical target velocity (gentle climb/descend)
+      const tvx = (sy * fwd + cy * strafe) * SPEED;
+      const tvz = (cy * fwd - sy * strafe) * SPEED;
+      const tvy = climb * VSPEED + (-pitch) * Math.abs(fwd) * VSPEED; // dive/climb with the nose while moving
+      const ease = Math.min(1, 5 * dt);
+      p.vel.x += (tvx - p.vel.x) * ease;
+      p.vel.y += (tvy - p.vel.y) * ease;
+      p.vel.z += (tvz - p.vel.z) * ease;
+      p.pos.x += p.vel.x * dt * 10;
+      p.pos.y += p.vel.y * dt * 10;
+      p.pos.z += p.vel.z * dt * 10;
+
+      p.inputs.throttle = Math.min(1, Math.hypot(p.vel.x, p.vel.y, p.vel.z) / SPEED);
+      sound.setThrottle(0.25 + p.inputs.throttle * 0.6);
+      turboActiveRef.current = false;
+      assistActiveRef.current = false;
+    };
+
     const updatePhysics = (dt: number) => {
       if (gameStateRef.current !== 'flying') return;
 
       const p = physicsRef.current;
       const inputs = p.inputs;
 
+      // Shared: remember the position before this frame's movement (for distance).
+      const prevX = p.pos.x;
+      const prevY = p.pos.y;
+      const prevZ = p.pos.z;
+
+      if (controlLayoutRef.current === 'mouse') {
+        arcadeControls(p, dt);
+      } else {
       // Read raw stick TARGETS from the keyboard for the active layout, then
       // smooth the applied inputs toward them so on/off keys feel analogue.
       // Standard FPV Mode 2: Left stick is Throttle/Yaw, Right stick is Pitch/Roll
@@ -575,13 +656,10 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
       p.vel.z += (az - p.vel.z * dragCoeff) * dt;
 
       // Update positions
-      const prevX = p.pos.x;
-      const prevY = p.pos.y;
-      const prevZ = p.pos.z;
-
       p.pos.x += p.vel.x * dt * 10;
       p.pos.y += p.vel.y * dt * 10;
       p.pos.z += p.vel.z * dt * 10;
+      } // end FPV physics branch (mouse arcade handled above)
 
       // Track distance flown this frame
       const dxFlown = p.pos.x - prevX;
@@ -601,8 +679,8 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
       // Constrain to ground (don't fall through ground)
       if (p.pos.y < 0.2) {
         p.pos.y = 0.2;
-        // Bounce or stop vertical velocity
-        if (p.vel.y < -3) {
+        // Bounce or stop vertical velocity (forgiving threshold so it doesn't crash easily)
+        if (p.vel.y < -6) {
           triggerCrash();
         } else {
           p.vel.y = 0;
@@ -807,12 +885,24 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
       if (levelImageRef.current) {
         // We draw the preloaded prompt image scaled and offset dynamically based on FPV camera yaw and pitch
         // This makes the user feel like they are flying directly inside the generated retro-future city!
-        const yawShift = (camYaw * (width / Math.PI)) % width;
-        const pitchShift = (camPitch * 150);
+        const yawShift = (((camYaw * (width / Math.PI)) % width) + width) % width;
+        const pitchShift = camPitch * 60; // gentler vertical parallax (was jittery)
 
-        ctx.drawImage(levelImageRef.current, -yawShift, -100 - pitchShift, width, height + 200);
-        ctx.drawImage(levelImageRef.current, width - yawShift, -100 - pitchShift, width, height + 200);
-        ctx.drawImage(levelImageRef.current, -width - yawShift, -100 - pitchShift, width, height + 200);
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        for (let ox = -1; ox <= 1; ox++) {
+          ctx.drawImage(levelImageRef.current, ox * width - yawShift, -90 - pitchShift, width, height + 180);
+        }
+        ctx.restore();
+
+        // Mute the busy concept-art backdrop so the 3D scene (grid, gates, trail,
+        // drone) reads clearly ON TOP instead of getting lost in the illustration.
+        const dim = ctx.createLinearGradient(0, 0, 0, height);
+        dim.addColorStop(0, 'rgba(3,5,14,0.55)');
+        dim.addColorStop(0.45, 'rgba(3,5,14,0.33)');
+        dim.addColorStop(1, 'rgba(2,3,9,0.82)');
+        ctx.fillStyle = dim;
+        ctx.fillRect(0, 0, width, height);
       } else {
         // Fallback gradient sky
         const gradient = ctx.createLinearGradient(0, 0, 0, height);
@@ -1321,13 +1411,20 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
               </div>
             </div>
 
-            {/* Guided launch assist banner */}
-            {gameState === 'flying' && launchAssist && (
+            {/* Guided launch assist banner (FPV modes only; arcade never falls) */}
+            {gameState === 'flying' && launchAssist && controlLayout !== 'mouse' && (
               <div className="absolute top-[70px] left-1/2 -translate-x-1/2 bg-black/80 border-2 border-[#00e5ff] text-[#00e5ff] px-4 py-1.5 rounded-lg flex items-center gap-2 shadow-[0_0_18px_rgba(0,229,255,0.4)] pointer-events-none">
                 <Shield className="w-4 h-4 animate-pulse" />
                 <span className="font-black uppercase text-xs tracking-wider">Auto-Stabilize</span>
                 <span className="font-mono font-black text-sm">{assistSecs}s</span>
                 <span className="text-[9px] text-white/60 uppercase hidden sm:inline">· steer to line up · throttle handed over</span>
+              </div>
+            )}
+
+            {/* Mouse-look hint (arcade mode, pointer not captured yet) */}
+            {gameState === 'flying' && controlLayout === 'mouse' && !pointerLocked && (
+              <div className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-black/75 border border-[#b6ff00]/50 text-[#b6ff00] px-4 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider pointer-events-none animate-pulse">
+                🖱️ Click the view to steer with the mouse
               </div>
             )}
 
@@ -1422,7 +1519,7 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
               </div>
               <div className="mt-10 text-center text-[10px] font-mono text-neutral-400 uppercase tracking-wider space-y-1 bg-black/80 px-4 py-2 border border-neutral-800 rounded">
                 <p className="text-[#b6ff00] font-black">READY PLAYER ONE</p>
-                <p className="opacity-70">Controls: {controlLayout === 'standard' ? 'W/S (Throttle) | A/D (Yaw) | I/K (Pitch) | J/L (Roll)' : 'W/S/A/D (Pitch/Roll) | Space/Shift (Throttle) | Left/Right (Yaw)'}</p>
+                <p className="opacity-70">Controls: {controlLayout === 'mouse' ? 'MOUSE to look · W/S forward/back · A/D strafe · Space/Shift up/down' : controlLayout === 'standard' ? 'W/S (Throttle) | A/D (Yaw) | I/K (Pitch) | J/L (Roll)' : 'W/S/A/D (Pitch/Roll) | Space/Shift (Throttle) | Left/Right (Yaw)'}</p>
               </div>
             </div>
           )}
@@ -1549,23 +1646,48 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
             )}
           </div>
 
-          <div className="flex gap-2 rounded bg-neutral-950 p-1 mb-3 text-xs border border-neutral-800">
+          <div className="flex gap-1.5 rounded bg-neutral-950 p-1 mb-3 text-[11px] border border-neutral-800">
+            <button
+              onClick={() => setControlLayout('mouse')}
+              className={`flex-1 py-1 rounded font-bold uppercase transition ${controlLayout === 'mouse' ? 'bg-[#b6ff00] text-black' : 'text-neutral-400 hover:text-white'}`}
+            >
+              Mouse
+            </button>
             <button
               onClick={() => setControlLayout('standard')}
               className={`flex-1 py-1 rounded font-bold uppercase transition ${controlLayout === 'standard' ? 'bg-[#ff2e93] text-white' : 'text-neutral-400 hover:text-white'}`}
             >
-              Mode 2 (Pro)
+              Mode 2
             </button>
             <button
               onClick={() => setControlLayout('wasd')}
               className={`flex-1 py-1 rounded font-bold uppercase transition ${controlLayout === 'wasd' ? 'bg-[#ff2e93] text-white' : 'text-neutral-400 hover:text-white'}`}
             >
-              Casual WASD
+              Casual
             </button>
           </div>
 
           <div className="space-y-2 text-xs font-mono">
-            {controlLayout === 'standard' ? (
+            {controlLayout === 'mouse' ? (
+              <>
+                <div className="flex justify-between border-b border-neutral-800 pb-1">
+                  <span className="text-neutral-400">LOOK / AIM:</span>
+                  <span className="text-[#b6ff00] font-bold">Mouse (click view to lock)</span>
+                </div>
+                <div className="flex justify-between border-b border-neutral-800 pb-1">
+                  <span className="text-neutral-400">MOVE:</span>
+                  <span className="text-[#b6ff00] font-bold">W fwd · S back · A/D strafe</span>
+                </div>
+                <div className="flex justify-between border-b border-neutral-800 pb-1">
+                  <span className="text-neutral-400">CLIMB / DESCEND:</span>
+                  <span className="text-[#b6ff00] font-bold">Space / Shift</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-neutral-400">TURN (no mouse):</span>
+                  <span className="text-[#b6ff00] font-bold">Arrow keys</span>
+                </div>
+              </>
+            ) : controlLayout === 'standard' ? (
               <>
                 <div className="flex justify-between border-b border-neutral-800 pb-1">
                   <span className="text-neutral-400">THROTTLE:</span>
