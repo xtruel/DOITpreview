@@ -146,6 +146,13 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
     };
   }, []);
 
+  // Guided launch: auto-hold altitude for the first seconds so the drone gains
+  // stability instead of dropping while the pilot gets oriented.
+  const ASSIST_MS = 5000;
+  const assistActiveRef = useRef(true);
+  const [launchAssist, setLaunchAssist] = useState(true);
+  const [assistSecs, setAssistSecs] = useState(5);
+
   // Load Leaderboard / Personal Best & Ghost Data
   useEffect(() => {
     // Entrance animations trigger for OSD
@@ -268,8 +275,11 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
     setTurboEnergy(100);
     setIsTurboActive(false);
     setIsLowBatteryGlitching(false);
+    setLaunchAssist(true);
+    setAssistSecs(5);
 
     // Reset loop-read refs so the freshly persistent rAF loop sees a clean slate
+    assistActiveRef.current = true;
     currentGateIdxRef.current = 0;
     collisionActiveRef.current = false;
     lowBatteryRef.current = false;
@@ -439,6 +449,22 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
       if (Math.abs(inputs.pitch) < 0.001) inputs.pitch = 0;
       if (Math.abs(inputs.roll) < 0.001) inputs.roll = 0;
       if (Math.abs(inputs.yaw) < 0.001) inputs.yaw = 0;
+
+      // --- Guided launch (first ASSIST_MS) ------------------------------------
+      // Auto-manage throttle to hold a target altitude so the drone stays stable
+      // while the pilot gets oriented. Steering (yaw/pitch/roll) still responds, so
+      // you can start lining up the first gate; only the throttle is assisted.
+      // At handoff, inputs.throttle already equals the assisted value, so control
+      // transfers with no sudden drop.
+      const assistElapsed = Date.now() - p.startTime;
+      if (assistElapsed < ASSIST_MS) {
+        const targetY = 20;
+        const t = 0.37 + (targetY - p.pos.y) * 0.02 - p.vel.y * 0.04;
+        inputs.throttle = Math.max(0.05, Math.min(1, t));
+      } else if (assistActiveRef.current) {
+        assistActiveRef.current = false;
+        setLaunchAssist(false);
+      }
 
       // Live engine audio response
       sound.setThrottle(inputs.throttle);
@@ -682,6 +708,9 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
         setBattery(batteryRef.current);
         setLapTime(lapTimeRef.current);
         setTurboEnergy(turboEnergyRef.current);
+        if (assistActiveRef.current) {
+          setAssistSecs(Math.max(1, Math.ceil((ASSIST_MS - lapTimeRef.current) / 1000)));
+        }
       }
     };
 
@@ -1291,6 +1320,16 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
                 <div className="absolute right-[-20px] top-1/2 w-8 h-[2px] bg-green-400"></div>
               </div>
             </div>
+
+            {/* Guided launch assist banner */}
+            {gameState === 'flying' && launchAssist && (
+              <div className="absolute top-[70px] left-1/2 -translate-x-1/2 bg-black/80 border-2 border-[#00e5ff] text-[#00e5ff] px-4 py-1.5 rounded-lg flex items-center gap-2 shadow-[0_0_18px_rgba(0,229,255,0.4)] pointer-events-none">
+                <Shield className="w-4 h-4 animate-pulse" />
+                <span className="font-black uppercase text-xs tracking-wider">Auto-Stabilize</span>
+                <span className="font-mono font-black text-sm">{assistSecs}s</span>
+                <span className="text-[9px] text-white/60 uppercase hidden sm:inline">· steer to line up · throttle handed over</span>
+              </div>
+            )}
 
             {/* Bottom Left/Right OSD meters */}
             <div className="flex justify-between items-end mt-auto gap-2">
