@@ -6,6 +6,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { DroneConfig, Level, Gate, FlightTelemetry, LapRecord } from '../types';
 import { sound } from './SoundEngine';
+import { platform } from '../platform';
 import { Play, RotateCcw, AlertTriangle, Radio, Shield, Gauge, Zap, Sparkles, Award, Palette, CheckCircle, Flame, ChevronRight, BarChart2 } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
@@ -133,15 +134,15 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
     // Entrance animations trigger for OSD
     setTimeout(() => setOsdLoaded(true), 250);
 
-    const storedBest = localStorage.getItem(`dronedoit_best_${level.id}`);
+    const storedBest = platform.storage.get(`dronedoit_best_${level.id}`);
     if (storedBest) {
       const bestRecord: LapRecord = JSON.parse(storedBest);
       setPersonalBest(bestRecord.timeMs);
     }
 
-    const dist = parseFloat(localStorage.getItem('dronedoit_stat_distance') || '0');
-    const gates = parseInt(localStorage.getItem('dronedoit_stat_gates') || '0');
-    const unlockedStr = localStorage.getItem('dronedoit_unlocked_palettes') || '[]';
+    const dist = parseFloat(platform.storage.get('dronedoit_stat_distance') || '0');
+    const gates = parseInt(platform.storage.get('dronedoit_stat_gates') || '0');
+    const unlockedStr = platform.storage.get('dronedoit_unlocked_palettes') || '[]';
     let unlockedList: string[] = [];
     try {
       unlockedList = JSON.parse(unlockedStr);
@@ -152,7 +153,7 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
     setCumulativeGates(gates);
     setUnlockedPalettes(unlockedList);
 
-    const storedGhost = localStorage.getItem(`dronedoit_ghost_${level.id}`);
+    const storedGhost = platform.storage.get(`dronedoit_ghost_${level.id}`);
     if (storedGhost) {
       try {
         physicsRef.current.ghostTelemetry = JSON.parse(storedGhost);
@@ -178,7 +179,7 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
   }, [level]);
 
   const checkAchievements = (totalDist: number, totalGates: number) => {
-    const unlockedStr = localStorage.getItem('dronedoit_unlocked_palettes') || '[]';
+    const unlockedStr = platform.storage.get('dronedoit_unlocked_palettes') || '[]';
     let unlocked: string[] = [];
     try {
       unlocked = JSON.parse(unlockedStr);
@@ -200,7 +201,7 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
     
     if (newlyUnlocked.length > 0) {
       const nextUnlocked = [...unlocked, ...newlyUnlocked];
-      localStorage.setItem('dronedoit_unlocked_palettes', JSON.stringify(nextUnlocked));
+      platform.storage.set('dronedoit_unlocked_palettes', JSON.stringify(nextUnlocked));
       setUnlockedPalettes(nextUnlocked);
       setAchievementToast(`UNLOCKED PALETTE: ${newlyUnlocked.join(', ')}!`);
       sound.playVictory();
@@ -211,14 +212,14 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
   const commitRunStats = () => {
     if (runStatsRef.current.distance <= 0.1 && runStatsRef.current.gates === 0) return;
     
-    const storedDist = parseFloat(localStorage.getItem('dronedoit_stat_distance') || '0');
-    const storedGates = parseInt(localStorage.getItem('dronedoit_stat_gates') || '0');
+    const storedDist = parseFloat(platform.storage.get('dronedoit_stat_distance') || '0');
+    const storedGates = parseInt(platform.storage.get('dronedoit_stat_gates') || '0');
     
     const newDist = storedDist + runStatsRef.current.distance;
     const newGates = storedGates + runStatsRef.current.gates;
     
-    localStorage.setItem('dronedoit_stat_distance', newDist.toString());
-    localStorage.setItem('dronedoit_stat_gates', newGates.toString());
+    platform.storage.set('dronedoit_stat_distance', newDist.toString());
+    platform.storage.set('dronedoit_stat_gates', newGates.toString());
 
     setCumulativeDist(newDist);
     setCumulativeGates(newGates);
@@ -227,9 +228,9 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
     checkAchievements(newDist, newGates);
     
     // Persist best top speed (km/h) across all runs
-    const storedTop = parseFloat(localStorage.getItem('dronedoit_stat_topspeed') || '0');
+    const storedTop = parseFloat(platform.storage.get('dronedoit_stat_topspeed') || '0');
     if (runStatsRef.current.topSpeed > storedTop) {
-      localStorage.setItem('dronedoit_stat_topspeed', Math.round(runStatsRef.current.topSpeed).toString());
+      platform.storage.set('dronedoit_stat_topspeed', Math.round(runStatsRef.current.topSpeed).toString());
     }
 
     // Reset run stats for next run
@@ -653,8 +654,8 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
       setGameState('crashed');
       sound.stopMotor();
       sound.playCrash();
-      const crashes = parseInt(localStorage.getItem('dronedoit_stat_crashes') || '0', 10) + 1;
-      localStorage.setItem('dronedoit_stat_crashes', crashes.toString());
+      const crashes = parseInt(platform.storage.get('dronedoit_stat_crashes') || '0', 10) + 1;
+      platform.storage.set('dronedoit_stat_crashes', crashes.toString());
       commitRunStats();
     };
 
@@ -1039,8 +1040,8 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
 
   const handleRaceFinished = () => {
     // Career counter: races finished
-    const races = parseInt(localStorage.getItem('dronedoit_stat_races') || '0', 10) + 1;
-    localStorage.setItem('dronedoit_stat_races', races.toString());
+    const races = parseInt(platform.storage.get('dronedoit_stat_races') || '0', 10) + 1;
+    platform.storage.set('dronedoit_stat_races', races.toString());
 
     // Check for personal record
     const finalTime = Date.now() - physicsRef.current.startTime;
@@ -1059,14 +1060,16 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
         droneFrame: config.frameType,
       };
 
-      localStorage.setItem(`dronedoit_best_${level.id}`, JSON.stringify(record));
+      platform.storage.set(`dronedoit_best_${level.id}`, JSON.stringify(record));
       // Save entire coordinates trajectory log for future Ghost replays!
-      localStorage.setItem(`dronedoit_ghost_${level.id}`, JSON.stringify(physicsRef.current.telemetryLog));
+      platform.storage.set(`dronedoit_ghost_${level.id}`, JSON.stringify(physicsRef.current.telemetryLog));
+      // Steam build uploads this to the per-level leaderboard (no-op on web).
+      platform.submitScore(level.id, finalTime);
     }
 
     // Check if under par time for emerald achievement
     if (finalTime <= level.parTimeMs) {
-      const unlockedStr = localStorage.getItem('dronedoit_unlocked_palettes') || '[]';
+      const unlockedStr = platform.storage.get('dronedoit_unlocked_palettes') || '[]';
       let unlocked: string[] = [];
       try {
         unlocked = JSON.parse(unlockedStr);
@@ -1075,7 +1078,7 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
       }
       if (!unlocked.includes('Beat Special Emerald')) {
         const nextUnlocked = [...unlocked, 'Beat Special Emerald'];
-        localStorage.setItem('dronedoit_unlocked_palettes', JSON.stringify(nextUnlocked));
+        platform.storage.set('dronedoit_unlocked_palettes', JSON.stringify(nextUnlocked));
         setAchievementToast("UNLOCKED: Beat Special Emerald (Beat the par time!)");
         sound.playVictory();
         setTimeout(() => setAchievementToast(null), 4000);

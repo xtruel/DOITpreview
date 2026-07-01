@@ -10,6 +10,7 @@
 
 import { LEVELS } from './levels';
 import type { FrameType, LapRecord } from './types';
+import { platform } from './platform';
 
 export const FRAME_OPTIONS: { id: FrameType; name: string; desc: string }[] = [
   { id: 'true_x', name: 'True X', desc: 'Symmetric, agile' },
@@ -90,7 +91,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
 ];
 
 function num(key: string): number {
-  const v = parseFloat(localStorage.getItem(key) || '0');
+  const v = parseFloat(platform.storage.get(key) || '0');
   return Number.isFinite(v) ? v : 0;
 }
 
@@ -104,7 +105,7 @@ export function getRank(totalGates: number): { current: PilotRank; next: PilotRa
 }
 
 export function readPilotStats(): PilotStats {
-  const unlockedStr = localStorage.getItem('dronedoit_unlocked_palettes') || '[]';
+  const unlockedStr = platform.storage.get('dronedoit_unlocked_palettes') || '[]';
   let unlockedPalettes: string[] = [];
   try {
     unlockedPalettes = JSON.parse(unlockedStr);
@@ -114,7 +115,7 @@ export function readPilotStats(): PilotStats {
 
   const bests: LevelBest[] = LEVELS.map((lvl) => {
     let record: LapRecord | null = null;
-    const stored = localStorage.getItem(`dronedoit_best_${lvl.id}`);
+    const stored = platform.storage.get(`dronedoit_best_${lvl.id}`);
     if (stored) {
       try {
         record = JSON.parse(stored);
@@ -122,7 +123,7 @@ export function readPilotStats(): PilotStats {
         record = null;
       }
     }
-    const hasGhost = !!localStorage.getItem(`dronedoit_ghost_${lvl.id}`);
+    const hasGhost = !!platform.storage.get(`dronedoit_ghost_${lvl.id}`);
     return {
       levelId: lvl.id,
       name: lvl.name,
@@ -135,7 +136,7 @@ export function readPilotStats(): PilotStats {
   });
 
   return {
-    callsign: localStorage.getItem('dronedoit_pilot_callsign') || 'GRAFF_RACER',
+    callsign: platform.storage.get('dronedoit_pilot_callsign') || 'GRAFF_RACER',
     totalDistance: num('dronedoit_stat_distance'),
     totalGates: Math.round(num('dronedoit_stat_gates')),
     racesFinished: Math.round(num('dronedoit_stat_races')),
@@ -157,10 +158,10 @@ export function resetPilotCareer() {
     'dronedoit_stat_topspeed',
     'dronedoit_unlocked_palettes',
   ];
-  for (const k of keys) localStorage.removeItem(k);
+  for (const k of keys) platform.storage.remove(k);
   for (const lvl of LEVELS) {
-    localStorage.removeItem(`dronedoit_best_${lvl.id}`);
-    localStorage.removeItem(`dronedoit_ghost_${lvl.id}`);
+    platform.storage.remove(`dronedoit_best_${lvl.id}`);
+    platform.storage.remove(`dronedoit_ghost_${lvl.id}`);
   }
 }
 

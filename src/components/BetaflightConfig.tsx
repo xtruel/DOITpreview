@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { DroneConfig, FrameType, FlightMode } from '../types';
+import { platform } from '../platform';
 import { Sliders, Zap, Shield, HelpCircle, Eye, RefreshCw } from 'lucide-react';
 
 interface BetaflightConfigProps {
@@ -20,7 +21,7 @@ export const BetaflightConfig: React.FC<BetaflightConfigProps> = ({
 }) => {
   const [unlockedPalettes, setUnlockedPalettes] = React.useState<string[]>([]);
   React.useEffect(() => {
-    const unlockedStr = localStorage.getItem('dronedoit_unlocked_palettes') || '[]';
+    const unlockedStr = platform.storage.get('dronedoit_unlocked_palettes') || '[]';
     try {
       const parsed = JSON.parse(unlockedStr);
       setUnlockedPalettes(parsed);

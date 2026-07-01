@@ -10,6 +10,7 @@ import { BetaflightConfig } from './components/BetaflightConfig';
 import { FPVSimulator } from './components/FPVSimulator';
 import { PilotProfile } from './components/PilotProfile';
 import { sound } from './components/SoundEngine';
+import { platform } from './platform';
 import { Play, Sparkles, Award, Palette, Music, Volume2, VolumeX, HelpCircle, Flame, Shield, Globe, Cpu, RotateCcw, ChevronRight, X, User } from 'lucide-react';
 
 const DEFAULT_LEADERBOARDS: { [key: number]: { pilotName: string; timeMs: number; date: string; droneFrame: string }[] } = {
@@ -74,10 +75,10 @@ export default function App() {
       yawRate: 2.2,
       flightMode: 'ANGLE', // ANGLE is much easier for beginners using web keyboard
       cameraTilt: 25,
-      pilotCallsign: localStorage.getItem('dronedoit_pilot_callsign') || 'GRAFF_RACER',
+      pilotCallsign: platform.storage.get('dronedoit_pilot_callsign') || 'GRAFF_RACER',
     };
     try {
-      const storedConfig = localStorage.getItem('dronedoit_config');
+      const storedConfig = platform.storage.get('dronedoit_config');
       if (storedConfig) return { ...defaults, ...JSON.parse(storedConfig) };
     } catch {
       /* ignore malformed config */
@@ -87,8 +88,8 @@ export default function App() {
 
   // Persist pilot callsign and the full config when they change
   useEffect(() => {
-    localStorage.setItem('dronedoit_pilot_callsign', config.pilotCallsign);
-    localStorage.setItem('dronedoit_config', JSON.stringify(config));
+    platform.storage.set('dronedoit_pilot_callsign', config.pilotCallsign);
+    platform.storage.set('dronedoit_config', JSON.stringify(config));
   }, [config]);
 
   // Load personal bests
@@ -96,7 +97,7 @@ export default function App() {
     const fetchBests = () => {
       const updated: { [key: number]: LapRecord | null } = {};
       LEVELS.forEach((lvl) => {
-        const stored = localStorage.getItem(`dronedoit_best_${lvl.id}`);
+        const stored = platform.storage.get(`dronedoit_best_${lvl.id}`);
         if (stored) {
           updated[lvl.id] = JSON.parse(stored);
         } else {
@@ -161,7 +162,7 @@ export default function App() {
 
   const getLeaderboardForLevel = (lvlId: number) => {
     const defaults = DEFAULT_LEADERBOARDS[lvlId] || [];
-    const stored = localStorage.getItem(`dronedoit_best_${lvlId}`);
+    const stored = platform.storage.get(`dronedoit_best_${lvlId}`);
     if (!stored) return defaults;
     
     try {

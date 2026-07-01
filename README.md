@@ -54,8 +54,25 @@ per race and reads live values from refs (game state, gate index, inputs, turbo�
 numbers are flushed to React at ~14 fps so the canvas stays smooth and the heavier DOM/chart
 updates don't run every frame.
 
+## Distribution — one codebase, two targets
+
+The game is built to ship to both **web** (GitHub Pages / itch.io preview & demo)
+and **Steam** (a desktop wrapper — Electron or Tauri) from the same source.
+
+All save/achievement/leaderboard access goes through `src/platform/` instead of
+touching `localStorage` or Steamworks directly:
+
+- `platform/index.ts` — the `platform` singleton. Web impl uses `localStorage`.
+- `platform/steam.ts` — scaffold for the Steamworks impl (selected when
+  `VITE_TARGET=steam`), documenting the achievement/leaderboard/cloud-save mapping.
+
+This is the only seam needed to light up Steam features later, so the web build
+stays a pure static SPA.
+
 ## Roadmap
 
-- More complex / longer courses and richer 3D worlds
-- Multiplayer races and shared leaderboards between web users
-- Pilot profiles / home hub
+- Desktop wrapper (Electron/Tauri) + Steamworks (achievements, leaderboards, cloud saves)
+- Multiplayer races (ghost-realtime via an external service, e.g. Supabase) — works
+  on both itch.io and Steam since the client just connects out to the server
+- Richer, dedicated concept art per world; more procedurally-built courses
+- Pilot profiles / home hub ✓
