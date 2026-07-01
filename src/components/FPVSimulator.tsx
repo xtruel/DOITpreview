@@ -115,6 +115,7 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
   const lapTimeRef = useRef(0);
   const hudAccumRef = useRef(0);
   const personalBestRef = useRef<number | null>(null);
+  const padRestartPrevRef = useRef(false);
 
   // Keep loop-read refs in sync with React state (cheap, low-frequency).
   // (controlLayout is synced below, after its useState declaration.)
@@ -128,6 +129,22 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
   // Keyboard layout tip
   const [controlLayout, setControlLayout] = useState<'standard' | 'wasd'>('standard');
   useEffect(() => { controlLayoutRef.current = controlLayout; }, [controlLayout]);
+
+  // Detect a connected controller (browsers require a button press first)
+  const [gamepadConnected, setGamepadConnected] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+      setGamepadConnected(Array.from(pads).some((g) => g && g.connected));
+    };
+    window.addEventListener('gamepadconnected', check);
+    window.addEventListener('gamepaddisconnected', check);
+    check();
+    return () => {
+      window.removeEventListener('gamepadconnected', check);
+      window.removeEventListener('gamepaddisconnected', check);
+    };
+  }, []);
 
   // Load Leaderboard / Personal Best & Ghost Data
   useEffect(() => {
@@ -372,6 +389,38 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
         else if (keysPressed.current['arrowright']) tYaw = 1;
       }
 
+      // --- Gamepad / controller input -----------------------------------------
+      // Analogue sticks map straight to the flight targets (Mode 2 by default),
+      // overriding the keyboard when a pad is connected. Standard mapping assumed
+      // (Xbox/PS/most USB pads report the "standard" gamepad layout).
+      let padTurbo = false;
+      const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+      let pad = null as Gamepad | null;
+      for (const g of pads) { if (g && g.connected) { pad = g; break; } }
+      if (pad) {
+        const dz = (v: number) => (Math.abs(v) < 0.12 ? 0 : v);
+        const lx = dz(pad.axes[0] ?? 0);
+        const ly = dz(pad.axes[1] ?? 0);
+        const rx = dz(pad.axes[2] ?? 0);
+        const ry = dz(pad.axes[3] ?? 0);
+        if (controlLayoutRef.current === 'standard') {
+          // Mode 2: left stick = throttle (Y) + yaw (X), right stick = pitch (Y) + roll (X)
+          inputs.throttle = Math.max(0, Math.min(1, (-ly + 1) / 2));
+          tYaw = lx; tPitch = -ry; tRoll = rx;
+        } else {
+          // Casual: left stick = pitch/roll, right stick = throttle (Y) + yaw (X)
+          tPitch = -ly; tRoll = lx;
+          inputs.throttle = Math.max(0, Math.min(1, (-ry + 1) / 2));
+          tYaw = rx;
+        }
+        // Turbo on right trigger (7) / RB (5) / A (0)
+        padTurbo = !!(pad.buttons[7]?.pressed || pad.buttons[5]?.pressed || pad.buttons[0]?.pressed);
+        // Restart on Start button (edge-triggered)
+        const startPressed = !!pad.buttons[9]?.pressed;
+        if (startPressed && !padRestartPrevRef.current) resetSimulation();
+        padRestartPrevRef.current = startPressed;
+      }
+
       // --- Analogue stick smoothing -------------------------------------------
       // Ramp the applied inputs toward the raw targets instead of snapping. This
       // is the single biggest "feel" upgrade for keyboard FPV: gentle stick rise
@@ -458,7 +507,8 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
 
       // Check if Turbo boost is requested
       let turboActive = false;
-      const wantsTurbo = (controlLayoutRef.current === 'standard' && keysPressed.current[' ']) ||
+      const wantsTurbo = padTurbo ||
+                         (controlLayoutRef.current === 'standard' && keysPressed.current[' ']) ||
                          (controlLayoutRef.current === 'wasd' && (keysPressed.current['shift'] || keysPressed.current['t'] || keysPressed.current['e']));
 
       if (wantsTurbo && inputs.throttle > 0.1 && turboEnergyRef.current > 0) {
@@ -1442,6 +1492,19 @@ export const FPVSimulator: React.FC<FPVSimulatorProps> = ({ level, config, onBac
           <h2 className="text-lg font-black uppercase text-[#ff2e93] italic tracking-tight mb-2">
             FPV Control Deck
           </h2>
+
+          {/* Controller status + mapping */}
+          <div className={`mb-3 rounded border px-3 py-2 text-[11px] font-mono flex items-center gap-2 ${
+            gamepadConnected ? 'bg-[#b6ff00]/10 border-[#b6ff00]/40 text-[#b6ff00]' : 'bg-neutral-950 border-neutral-800 text-neutral-500'
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${gamepadConnected ? 'bg-[#b6ff00] animate-pulse' : 'bg-neutral-600'}`} />
+            {gamepadConnected ? (
+              <span>GAMEPAD CONNECTED · L-stick throttle/yaw · R-stick pitch/roll · RT boost · Start restart</span>
+            ) : (
+              <span>Controller supported — connect a pad and press a button to activate</span>
+            )}
+          </div>
+
           <div className="flex gap-2 rounded bg-neutral-950 p-1 mb-3 text-xs border border-neutral-800">
             <button
               onClick={() => setControlLayout('standard')}
